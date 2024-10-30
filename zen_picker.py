@@ -25,6 +25,12 @@ DOCKER_NAME = "zen picker"
 instance = Krita.instance()
 
 
+notifier = instance.notifier()
+notifier.setActive(True)
+
+mid_value = 25
+
+
 class ZenDocker(DockWidget):
     def __init__(self):
         super().__init__()
@@ -60,8 +66,8 @@ class ZenDocker(DockWidget):
         self.slider_to_label("saturation")
         self.slider_to_label("value")
 
-        self.color_saturation = 1
-        self.color_value = 0
+        self.color_saturation = 50
+        self.color_value = 50
 
         # QMessageBox.information(QWidget(), "Warning", str(dir(self.ui)))
 
@@ -72,14 +78,9 @@ class ZenDocker(DockWidget):
 
     def Connections(self):
         pass
-        # i = 0
-        # for item in dir(self):
-        #     i += 1
-
-        # QMessageBox.information(QWidget(), "Warning", str(i))
 
     def update_label(self, slider: str) -> Callable[[int], None]:
-        def update(val: int):
+        def update_rgb(val: int):
             view = instance.activeWindow().activeView()
 
             color = QtGui.QColor(
@@ -88,52 +89,96 @@ class ZenDocker(DockWidget):
 
             if slider == "red":
                 color.setRed(val)
-                h, s, v, a = color.getHsv()
-                color = QtGui.QColor.fromHsv(
-                    h, self.color_saturation, self.color_value, a
-                )
 
             elif slider == "green":
                 color.setGreen(val)
-                h, s, v, a = color.getHsv()
-                color = QtGui.QColor.fromHsv(
-                    h, self.color_saturation, self.color_value, a
-                )
 
             elif slider == "blue":
                 color.setBlue(val)
-                h, s, v, a = color.getHsv()
-                color = QtGui.QColor.fromHsv(
-                    h, self.color_saturation, self.color_value, a
-                )
 
-            elif slider == "saturation" or slider == "value":
-                h, s, v, a = color.getHsv()
+            elif slider == "saturation":
+                r, g, b, a = color.getRgb()
+                upper = max(r, g, b)
+                lower = min(r, g, b)
 
-                if slider == "saturation":
-                    self.color_saturation = s
-                    color = QtGui.QColor.fromHsv(h, val, v, a)
-                else:
-                    self.color_value = v
-                    color = QtGui.QColor.fromHsv(h, s, val, a)
+                direction = saturation_direction(upper, lower)
 
-                for rgb_slider in ["red", "green", "blue"]:
-                    color_val = getattr(color, rgb_slider)()
-                    getattr(self.ui, rgb_slider + "_label").setText(str(color_val))
-                    getattr(self.ui, rgb_slider + "_slider").setValue(color_val)
+                if val != mid_value:
+                    if val > mid_value:
+                        val = -1 * (val - mid_value)
+                    elif val < mid_value:
+                        val = 1 * abs(val - mid_value)
 
-            self.setWindowTitle(slider + ":" + str(getattr(color, slider)()))
+                    r = clamp(r - (val * direction(r)))
+                    g = clamp(g - (val * direction(g)))
+                    b = clamp(b - (val * direction(b)))
+                    color.setRgb(r, g, b, a)
 
+                    getattr(self.ui, "red_label").setText(str(r))
+                    getattr(self.ui, "red_slider").setSliderPosition(r)
+
+                    getattr(self.ui, "green_label").setText(str(g))
+                    getattr(self.ui, "green_slider").setSliderPosition(g)
+
+                    getattr(self.ui, "blue_label").setText(str(b))
+                    getattr(self.ui, "blue_slider").setSliderPosition(b)
+
+            elif slider == "value":
+                r, g, b, a = color.getRgb()
+
+                if val != mid_value:
+                    if val > mid_value:
+                        val = -1 * (val - mid_value)
+                    elif val < mid_value:
+                        val = 1 * abs(val - mid_value)
+
+                    r = clamp(r - val)
+                    g = clamp(g - val)
+                    b = clamp(b - val)
+                    color.setRgb(r, g, b, a)
+
+                    getattr(self.ui, "red_label").setText(str(r))
+                    getattr(self.ui, "red_slider").setSliderPosition(r)
+
+                    getattr(self.ui, "green_label").setText(str(g))
+                    getattr(self.ui, "green_slider").setSliderPosition(g)
+
+                    getattr(self.ui, "blue_label").setText(str(b))
+                    getattr(self.ui, "blue_slider").setSliderPosition(b)
+
+            self.setWindowTitle(slider + ":" + str(val))
             getattr(self.ui, slider + "_label").setText(str(val))
-
             view.setForeGroundColor(ManagedColor.fromQColor(color, view.canvas()))
 
-        return update
+        return update_rgb
 
     def slider_to_label(self, slider: str):
         slider_el = getattr(self.ui, slider + "_slider")
         slider_el.valueChanged.connect(self.update_label(slider))
 
+        if slider == "value" or slider == "saturation":
+            slider_el.sliderReleased.connect(
+                lambda: slider_el.setSliderPosition(mid_value)
+            )
+
+    def update_color(self, somedata):
+        debug(str(somedata))
+
 
 def debug(message: str):
     QMessageBox.information(QWidget(), "Warning", message)
+
+
+def clamp(x: int):
+    return max(min(255, x), 0)
+
+
+def saturation_direction(upper: int, lower: int) -> Callable[[int], int]:
+    def direction(color_magnitude: int):
+        if color_magnitude == upper:
+            return 1
+        if color_magnitude == lower:
+            return -1
+        return 0
+
+    return direction

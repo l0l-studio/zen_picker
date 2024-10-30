@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'docker.ui'
+# Form implementation generated from reading ui file './docker.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.6
 #
@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_DockWidget(object):
     def setupUi(self, DockWidget):
         DockWidget.setObjectName("DockWidget")
-        DockWidget.resize(661, 541)
+        DockWidget.resize(790, 354)
         self.dockWidgetContents = QtWidgets.QWidget()
         self.dockWidgetContents.setObjectName("dockWidgetContents")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.dockWidgetContents)
@@ -34,8 +34,8 @@ class Ui_DockWidget(object):
         self.red_slider.setObjectName("red_slider")
         self.horizontalLayout.addWidget(self.red_slider)
         self.red_label = QtWidgets.QLabel(self.dockWidgetContents)
-        self.red_label.setMinimumSize(QtCore.QSize(100, 0))
-        self.red_label.setMaximumSize(QtCore.QSize(100, 16777215))
+        self.red_label.setMinimumSize(QtCore.QSize(25, 0))
+        self.red_label.setMaximumSize(QtCore.QSize(25, 16777215))
         self.red_label.setAlignment(QtCore.Qt.AlignCenter)
         self.red_label.setObjectName("red_label")
         self.horizontalLayout.addWidget(self.red_label)
@@ -80,7 +80,8 @@ class Ui_DockWidget(object):
         self.label_8.setObjectName("label_8")
         self.horizontalLayout_5.addWidget(self.label_8)
         self.saturation_slider = QtWidgets.QSlider(self.dockWidgetContents)
-        self.saturation_slider.setMaximum(255)
+        self.saturation_slider.setMaximum(50)
+        self.saturation_slider.setProperty("value", 25)
         self.saturation_slider.setOrientation(QtCore.Qt.Horizontal)
         self.saturation_slider.setObjectName("saturation_slider")
         self.horizontalLayout_5.addWidget(self.saturation_slider)
@@ -97,7 +98,9 @@ class Ui_DockWidget(object):
         self.label_6.setObjectName("label_6")
         self.horizontalLayout_2.addWidget(self.label_6)
         self.value_slider = QtWidgets.QSlider(self.dockWidgetContents)
-        self.value_slider.setMaximum(255)
+        self.value_slider.setMaximum(50)
+        self.value_slider.setProperty("value", 25)
+        self.value_slider.setSliderPosition(25)
         self.value_slider.setOrientation(QtCore.Qt.Horizontal)
         self.value_slider.setObjectName("value_slider")
         self.horizontalLayout_2.addWidget(self.value_slider)
@@ -126,4 +129,14 @@ class Ui_DockWidget(object):
         self.label_8.setText(_translate("DockWidget", "S"))
         self.saturation_label.setText(_translate("DockWidget", "0"))
         self.label_6.setText(_translate("DockWidget", "V"))
-        self.value_label.setText(_translate("DockWidget", "0"))
+        self.value_label.setText(_translate("DockWidget", "100"))
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    DockWidget = QtWidgets.QDockWidget()
+    ui = Ui_DockWidget()
+    ui.setupUi(DockWidget)
+    DockWidget.show()
+    sys.exit(app.exec_())
