@@ -31,6 +31,16 @@ mod zen_lib {
         return hsv_rgb(hsv).into_tuple();
     }
 
+    #[pyfunction]
+    fn mix(a: (u8, u8, u8), b: (u8, u8, u8), t: f32) -> (u8, u8, u8) {
+        return blend_colors(
+            Rgb::new(a.0, a.1, a.2).into(),
+            Rgb::new(b.0, b.1, b.2).into(),
+            t,
+        )
+        .into_tuple();
+    }
+
     mod colors_ops {
         pub struct Rgb(u8, u8, u8);
 
@@ -144,4 +154,18 @@ mod zen_lib {
                 (_rgb.2 * rgb_max) as u8,
             );
         }
+
+        // https://stackoverflow.com/a/29321264
+        fn blend_color_value(a: f32, b: f32, t: f32) -> f32 {
+            return f32::sqrt((1.0 - t) * a.powf(2.0) + t * b.powf(2.0));
+        }
+
+        pub fn blend_colors(a: Rgbf, b: Rgbf, t: f32) -> Rgb {
+            return Rgb(
+                blend_color_value(a.0, b.0, t) as u8,
+                blend_color_value(a.1, b.1, t) as u8,
+                blend_color_value(a.2, b.2, t) as u8,
+            );
+        }
+    }
 }
