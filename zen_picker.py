@@ -3,7 +3,7 @@ from typing import Callable
 from PyQt5.uic.properties import QtWidgets
 from krita import DockWidget
 from PyQt5 import QtCore, QtGui, uic
-from PyQt5.QtCore import QSysInfo, Qt
+from PyQt5.QtCore import QSysInfo, Qt, QTimer
 from PyQt5.QtWidgets import (
     QLabel,
     QMessageBox,
@@ -15,7 +15,6 @@ from PyQt5.QtWidgets import (
 )
 import os
 from krita import ManagedColor
-from .lib_zen import sum_as_string
 
 from .lib_zen import clamp, color_shift
 from .docker import Ui_DockWidget
@@ -30,6 +29,7 @@ notifier.setActive(True)
 
 # constants
 mid_value = 25
+sync_interval = 30
 
 
 class ZenDocker(DockWidget):
@@ -38,6 +38,9 @@ class ZenDocker(DockWidget):
         # self.setWindowTitle(DOCKER_TITLE)
         self.SetupUI()
         self.Connections()
+        self.Init_Sync_Timer()
+
+        self.timer_pulse.start()
 
     # notifies when views are added or removed
     # 'pass' means do not do anything
@@ -74,6 +77,37 @@ class ZenDocker(DockWidget):
 
     def Connections(self):
         pass
+
+    def Init_Sync_Timer(self):
+        if sync_interval >= 30:
+            self.timer_pulse = QTimer(self)
+            self.timer_pulse.timeout.connect(self.Sync)
+
+    def Sync(self):
+        if (self.canvas() is not None) and (self.canvas().view() is not None):
+            eraser = instance.action("erase_action")
+
+            # Current Krita Active Colors
+            color_fg = instance.activeWindow().activeView().foregroundColor()
+            color_bg = instance.activeWindow().activeView().backgroundColor()
+            order_fg = color_fg.componentsOrdered()
+            order_bg = color_bg.componentsOrdered()
+
+            if len(order_fg) < 3:
+                raise ValueError("color not rgb")
+
+            r = int(order_fg[0] * 255)
+            g = int(order_fg[1] * 255)
+            b = int(order_fg[2] * 255)
+
+            getattr(self.ui, "red_label").setText(str(r))
+            getattr(self.ui, "red_slider").setValue(r)
+
+            getattr(self.ui, "green_label").setText(str(g))
+            getattr(self.ui, "green_slider").setValue(g)
+
+            getattr(self.ui, "blue_label").setText(str(b))
+            getattr(self.ui, "blue_slider").setValue(b)
 
     def update_label(self, slider: str) -> Callable[[int], None]:
         def update_rgb(val: int):
