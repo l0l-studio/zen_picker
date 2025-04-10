@@ -17,17 +17,18 @@ import os
 from krita import ManagedColor
 from .lib_zen import sum_as_string
 
+from .lib_zen import clamp, color_shift
 from .docker import Ui_DockWidget
 
 
 DOCKER_NAME = "zen picker"
-
 instance = Krita.instance()
 
 
 notifier = instance.notifier()
 notifier.setActive(True)
 
+# constants
 mid_value = 25
 
 
@@ -93,20 +94,14 @@ class ZenDocker(DockWidget):
 
             elif slider == "saturation":
                 r, g, b, a = color.getRgb()
-                upper = max(r, g, b)
-                lower = min(r, g, b)
-
-                direction = saturation_direction(upper, lower)
 
                 if val != mid_value:
-                    if val > mid_value:
-                        val = -1 * (val - mid_value)
-                    elif val < mid_value:
+                    if val < mid_value:
+                        val = -1 * abs(val - mid_value)
+                    elif val > mid_value:
                         val = 1 * abs(val - mid_value)
 
-                    r = clamp(r - (val * direction(r)))
-                    g = clamp(g - (val * direction(g)))
-                    b = clamp(b - (val * direction(b)))
+                    (r, g, b) = color_shift((r, g, b), float(val / 255), 0.0)
                     color.setRgb(r, g, b, a)
 
                     getattr(self.ui, "red_label").setText(str(r))
@@ -122,14 +117,12 @@ class ZenDocker(DockWidget):
                 r, g, b, a = color.getRgb()
 
                 if val != mid_value:
-                    if val > mid_value:
-                        val = -1 * (val - mid_value)
-                    elif val < mid_value:
+                    if val < mid_value:
+                        val = -1 * abs(val - mid_value)
+                    elif val > mid_value:
                         val = 1 * abs(val - mid_value)
 
-                    r = clamp(r - val)
-                    g = clamp(g - val)
-                    b = clamp(b - val)
+                    (r, g, b) = color_shift((r, g, b), 0.0, float(val / 500))
                     color.setRgb(r, g, b, a)
 
                     getattr(self.ui, "red_label").setText(str(r))
@@ -141,16 +134,19 @@ class ZenDocker(DockWidget):
                     getattr(self.ui, "blue_label").setText(str(b))
                     getattr(self.ui, "blue_slider").setSliderPosition(b)
 
-            self.setWindowTitle(slider + ":" + str(val))
+            # self.setWindowTitle(slider + ":" + str(val))
             getattr(self.ui, slider + "_label").setText(str(val))
             view.setForeGroundColor(ManagedColor.fromQColor(color, view.canvas()))
 
         return update_rgb
 
-    def slider_to_label(self, slider: str):
-        slider_el = getattr(self.ui, slider + "_slider")
+    def slider_to_label(self, slider_prefix: str):
+        slider = getattr(self.ui, slider_prefix + "_slider")
 
-        slider_el.setStyleSheet("""
+        if slider_prefix == "value" or slider_prefix == "saturation":
+            slider.setPageStep(0)
+
+        slider.setStyleSheet("""
             QSlider::groove:horizontal {
                 border: 1px solid #999999;
                 height: 8px; /* the groove expands to the size of the slider by default. by giving it a height, it has a fixed size */
@@ -167,12 +163,10 @@ class ZenDocker(DockWidget):
             }
         """)
 
-        slider_el.valueChanged.connect(self.update_label(slider))
+        slider.valueChanged.connect(self.update_label(slider_prefix))
 
-        if slider == "value" or slider == "saturation":
-            slider_el.sliderReleased.connect(
-                lambda: slider_el.setSliderPosition(mid_value)
-            )
+        if slider_prefix == "value" or slider_prefix == "saturation":
+            slider.sliderReleased.connect(lambda: slider.setSliderPosition(mid_value))
 
     def update_color(self, somedata):
         debug(str(somedata))
@@ -180,18 +174,3 @@ class ZenDocker(DockWidget):
 
 def debug(message: str):
     QMessageBox.information(QWidget(), "Warning", message)
-
-
-def clamp(x: int):
-    return max(min(255, x), 0)
-
-
-def saturation_direction(upper: int, lower: int) -> Callable[[int], int]:
-    def direction(color_magnitude: int):
-        if color_magnitude == upper:
-            return 1
-        if color_magnitude == lower:
-            return -1
-        return 0
-
-    return direction

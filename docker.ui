@@ -36,7 +36,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QSlider" name="red_slider">
+         <widget class="QSlider" name="red_slider" native="true">
           <property name="maximum">
            <number>255</number>
           </property>
@@ -82,7 +82,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QSlider" name="green_slider">
+         <widget class="QSlider" name="green_slider"  native="true">
           <property name="maximum">
            <number>255</number>
           </property>
@@ -119,7 +119,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QSlider" name="blue_slider">
+         <widget class="QSlider" name="blue_slider"  native="true">
           <property name="maximum">
            <number>255</number>
           </property>
@@ -162,7 +162,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QSlider" name="saturation_slider">
+         <widget class="QSlider" name="saturation_slider" native="true">
           <property name="maximum">
            <number>50</number>
           </property>
@@ -208,7 +208,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QSlider" name="value_slider">
+         <widget class="QSlider" name="value_slider" native="true">
           <property name="maximum">
            <number>50</number>
           </property>
