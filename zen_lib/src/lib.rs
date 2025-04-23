@@ -7,7 +7,7 @@ mod color_ops;
 #[pyo3(name = "lib_zen")]
 mod zen_lib {
     use super::*;
-    use crate::color_ops::{blend_colors, hsv_rgb, rgbf_hsv, FTuple, Rgbf};
+    use crate::color_ops::{blend_colors, FTuple, Hsv, Rgbf};
     use std::cmp::{max, min};
 
     #[pyfunction()]
@@ -17,17 +17,17 @@ mod zen_lib {
 
     #[pyfunction]
     fn color_shift(rgb: FTuple, shift_s: f32, shift_v: f32) -> FTuple {
-        let mut hsv = rgbf_hsv(Rgbf::from(rgb));
+        let mut hsv: Hsv = Rgbf::from(rgb).into();
         let (_, s, v) = hsv.to_tuple();
         hsv.set(s + shift_s, v + shift_v);
-        return Rgbf::from(hsv_rgb(hsv)).into_tuple();
+        return Rgbf::from(hsv).into_tuple();
     }
     #[pyfunction]
     fn relative_color_shift(rgb: FTuple, shift_s: f32, shift_v: f32) -> FTuple {
-        let mut hsv = rgbf_hsv(Rgbf::from(rgb));
+        let mut hsv: Hsv = Rgbf::from(rgb).into();
         let (_, s, v) = hsv.to_tuple();
         hsv.set(s - (shift_s * s), v - (shift_v * v));
-        return Rgbf::from(hsv_rgb(hsv)).into_tuple();
+        return Rgbf::from(hsv).into_tuple();
     }
 
     #[pyfunction]

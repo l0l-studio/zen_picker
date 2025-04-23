@@ -7,26 +7,33 @@ https://invent.kde.org/graphics/krita/-/blob/master/plugins/python/mixer_slider_
 """
 
 try:
-    from PyQt6.QtWidgets import QWidget
+    from PyQt6.QtWidgets import QWidget, QHBoxLayout
     from PyQt6.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygon
     from PyQt6.QtCore import QPoint, Qt, qDebug
 except:
-    from PyQt5.QtWidgets import QWidget
+    from PyQt5.QtWidgets import QWidget, QHBoxLayout
     from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygon
     from PyQt5.QtCore import QPoint, Qt, qDebug
 
 from typing import List
 from krita import ManagedColor
 from .lib_zen import generate_color_gradient
+from .app import App
+from .utils import UnimplementedError
 
 class ColorSlider(QWidget):
-    default_color = ManagedColor("", "", "")
+    default_left_color = ManagedColor("", "", "")
+    default_right_color = ManagedColor("", "", "")
 
     def __init__(
-        self, docker, name, left_color=default_color, right_color=default_color, parent=None
+        self, app: App, 
+        name, 
+        left_color=default_left_color,
+        right_color=default_right_color,
+        parent=None
     ):
         super(ColorSlider, self).__init__(parent)
-        self.docker = docker
+        self.app = app
         self.name = name
         self.left_color = left_color
         self.right_color = right_color
@@ -36,29 +43,31 @@ class ColorSlider(QWidget):
         self.cursor_outline_color = QColor.fromRgbF(0, 0, 0, 1)
         self.need_redraw = True
 
-    def set_color(self, pos, color):
-        if pos == "left":
-            self.left_color = color
-        else:
-            self.right_color = color
+        self.setMaximumHeight(30)
+        self.setMinimumHeight(20)
 
-        self.need_redraw = True
+        self.update_color()
 
-        r, g, b, a = self.docker.current_color.componentsOrdered()
-
-        if self.name == "r_slider":
-            left = self.left_color.componentsOrdered()
-            right = self.right_color.componentsOrdered()
-            current = self.docker.current_color.componentsOrdered()
+    def update_color(self):
+        r, g, b, a = self.app.current_color.componentsOrdered()
 
         width = self.width()
         if self.name == "r_slider":
+            self.left_color.setComponents([b, g, 0.0, a]) 
+            self.right_color.setComponents([b, g, 1.0, a]) 
             self.value_x = self.adjust_pos_x(r * width)
         elif self.name == "g_slider":
+            self.left_color.setComponents([b, 0.0, r, a]) 
+            self.right_color.setComponents([b, 1.0, r, a]) 
             self.value_x = self.adjust_pos_x(g * width)
         elif self.name == "b_slider":
+            self.left_color.setComponents([0.0, g, r, a]) 
+            self.right_color.setComponents([1.0, g, r, a]) 
             self.value_x = self.adjust_pos_x(b * width)
+        else:
+            raise UnimplementedError("unimplemented update_color behavior for: "+ self.name)
 
+        self.need_redraw = True
         self.update()
 
     def update_slider(self):
@@ -69,13 +78,16 @@ class ColorSlider(QWidget):
         at the following URL.
         https://github.com/KDE/krita/blob/master/plugins/dockers/advancedcolorselector/kis_shade_selector_line.cpp
         """
+
+        width = self.width()
+        height = self.height()
         if self.need_redraw:
-            patch_count = self.width()
+            patch_count = width
 
             left_rgba = self.left_color.componentsOrdered()
             right_rgba = self.right_color.componentsOrdered()
 
-            self.slider_pixmap = QPixmap(self.width(), self.height())
+            self.slider_pixmap = QPixmap(width, height)
             painter = QPainter(self.slider_pixmap)
 
             gradient = generate_color_gradient(
@@ -87,7 +99,7 @@ class ColorSlider(QWidget):
             for i in range(patch_count):
                 r, g, b = gradient[i]
                 cur_color = QColor.fromRgbF(r, g, b)
-                painter.fillRect(i, 0, 1, self.height(), cur_color)
+                painter.fillRect(i, 0, 1, height, cur_color)
 
             painter.end()
             self.need_redraw = False
@@ -98,9 +110,9 @@ class ColorSlider(QWidget):
 
         if self.value_x is not None:
             start_x = int(self.value_x)
-            start_y = int(self.height() / 2)
-            delta_x = int(self.height() / 3)
-            delta_y = int(self.height() / 3)
+            start_y = int(height / 2)
+            delta_x = int(height / 3)
+            delta_y = int(height / 3)
             points = [
                 QPoint(start_x, start_y),
                 QPoint(start_x - delta_x, start_y + delta_y),
@@ -109,6 +121,7 @@ class ColorSlider(QWidget):
             widget_painter.setBrush(QBrush(self.cursor_fill_color))
             widget_painter.setPen(self.cursor_outline_color)
             widget_painter.drawPolygon(QPolygon(points))
+
 
     def paintEvent(self, event):
         self.update_slider()
@@ -129,8 +142,9 @@ class ColorSlider(QWidget):
         pos = event.pos()
         self.value_x = self.adjust_pos_x(pos.x())
         y = int(self.height() / 2)
-        if self.docker.canvas() is not None:
-            color = self.docker.current_color
+        canvas = self.app.canvas
+        if canvas is not None:
+            color = self.app.current_color
             comps = color.components()
             val = self.value_x / self.width()
 
@@ -147,8 +161,10 @@ class ColorSlider(QWidget):
             b, g, r, a = comps
 
             color.setComponents(comps)
-            if self.docker.canvas().view() is not None:
-                self.docker.canvas().view().setForeGroundColor(color)
+
+            view = canvas.view()
+            if view is not None:
+                view.setForeGroundColor(color)
 
         self.update()
 

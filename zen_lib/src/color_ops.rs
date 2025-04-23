@@ -1,42 +1,8 @@
-pub type ITuple = (u8, u8, u8);
 pub type FTuple = (f32, f32, f32);
-
-impl From<Rgb> for ITuple {
-    fn from(Rgb(r, g, b): Rgb) -> Self {
-        return (r, g, b) as Self;
-    }
-}
 
 impl From<Rgbf> for FTuple {
     fn from(Rgbf(r, g, b): Rgbf) -> Self {
         return (r, g, b) as Self;
-    }
-}
-
-pub struct Rgb(u8, u8, u8);
-
-impl Rgb {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
-        return Rgb(r, g, b);
-    }
-
-    pub fn into_tuple(self) -> ITuple {
-        return (self.0, self.1, self.2);
-    }
-
-    pub fn to_tuple(&self) -> ITuple {
-        return (self.0, self.1, self.2);
-    }
-}
-
-impl From<Rgbf> for Rgb {
-    fn from(Rgbf(r, g, b): Rgbf) -> Self {
-        let max_val: u8 = 255;
-        return Self(
-            (r as u8) * max_val,
-            (g as u8) * max_val,
-            (b as u8) * max_val,
-        );
     }
 }
 
@@ -60,26 +26,15 @@ impl Rgbf {
     }
 }
 
-impl From<Rgb> for Rgbf {
-    fn from(Rgb(r, g, b): Rgb) -> Self {
-        let max_val: f32 = 255.0;
-        return Self(
-            (r as f32) / max_val,
-            (g as f32) / max_val,
-            (b as f32) / max_val,
-        );
+impl From<Hsv> for Rgbf {
+    fn from(hsv: Hsv) -> Self {
+        return hsv_rgbf(hsv);
     }
 }
 
 impl From<FTuple> for Rgbf {
     fn from((r, g, b): FTuple) -> Self {
         return Self(r, g, b);
-    }
-}
-
-impl From<ITuple> for Rgbf {
-    fn from((r, g, b): ITuple) -> Self {
-        return Self::from(Rgb(r, g, b));
     }
 }
 
@@ -104,82 +59,106 @@ impl Hsv {
     }
 }
 
-// Color conversion implementatoins from:
-// https://www.easyrgb.com/en/math.php
+impl From<Rgbf> for Hsv {
+    fn from(rgbf: Rgbf) -> Self {
+        return rgbf_hsv(rgbf);
+    }
+}
 
-pub fn rgbf_hsv(Rgbf(r, g, b): Rgbf) -> Hsv {
-    let min_val = r.min(g.min(b));
-    let max_val = r.max(g.max(b));
-    let delta = max_val - min_val;
+// https://github.com/QuantitativeBytes/qbColor/blob/a0589344c47126705019f8498fe7fa5ae8b19d64/qbColor.cpp#L153
+fn rgbf_hsv(Rgbf(r, g, b): Rgbf) -> Hsv {
+    let min: f32;
+    let max: f32;
+    let max_index: u8;
+
+    if r == g && r == b {
+        max_index = 0;
+        min = r;
+        max = r;
+    } else if r >= g && r >= b {
+        max_index = 1;
+        max = r;
+        min = if g < b { g } else { b }
+    } else if g >= r && g >= b {
+        max_index = 2;
+        max = g;
+        min = if r < b { r } else { b }
+    } else {
+        max_index = 3;
+        max = b;
+        min = if r < g { r } else { g }
+    }
 
     let mut h: f32;
-    let s: f32;
-    let v: f32 = max_val;
+    let delta = max - min;
 
-    if delta == 0.0 {
-        h = 0.0;
-        s = 0.0;
-    } else {
-        s = delta / max_val;
-        let delta_r = (((max_val - r) / 6.0) + (delta / 2.0)) / delta;
-        let delta_g = (((max_val - g) / 6.0) + (delta / 2.0)) / delta;
-        let delta_b = (((max_val - b) / 6.0) + (delta / 2.0)) / delta;
-
-        if max_val == r {
-            h = delta_b - delta_g;
-        } else if max_val == g {
-            h = (1.0 / 3.0) + delta_r - delta_b;
-        } else {
-            h = (2.0 / 3.0) + delta_g - delta_r;
-        }
-
-        if h < 0.0 {
-            h += 1.0
-        }
-        if h > 1.0 {
-            h -= 1.0
-        }
+    match max_index {
+        1 => h = 60.0 * ((g - b) / delta),
+        2 => h = 60.0 * (2.0 + ((b - r) / delta)),
+        3 => h = 60.0 * (4.0 + ((r - g) / delta)),
+        _ => h = 0.0,
     }
+
+    if h < 0.0 {
+        h += 360.0;
+    }
+    h = h / 360.0;
+
+    let s: f32 = if max_index == 0 {
+        0.0
+    } else {
+        (max - min) / max
+    };
+
+    let v: f32 = max;
 
     return Hsv(h, s, v);
 }
 
-pub fn hsv_rgb(Hsv(h, s, v): Hsv) -> Rgb {
-    let rgb_max: f32 = 255.0;
+// https://github.com/QuantitativeBytes/qbColor/blob/a0589344c47126705019f8498fe7fa5ae8b19d64/qbColor.cpp#L217
+fn hsv_rgbf(Hsv(h, s, v): Hsv) -> Rgbf {
+    let rgb_range = s * v;
+    let max = v;
+    let min = v - rgb_range;
+    let _h = (h * 360.0) / 60.0;
+    let x1 = _h % 1.0;
+    let x2 = 1.0 - _h % 1.0;
 
-    if s == 0.0 {
-        return Rgb(
-            (v * rgb_max) as u8,
-            (v * rgb_max) as u8,
-            (v * rgb_max) as u8,
-        );
+    let r: f32;
+    let g: f32;
+    let b: f32;
+
+    if _h >= 0.0 && _h < 1.0 {
+        r = max;
+        g = (x1 * rgb_range) + min;
+        b = min;
+    } else if _h >= 1.0 && _h < 2.0 {
+        r = (x2 * rgb_range) + min;
+        g = max;
+        b = min;
+    } else if _h >= 2.0 && _h < 3.0 {
+        r = min;
+        g = max;
+        b = (x1 * rgb_range) + min;
+    } else if _h >= 3.0 && _h < 4.0 {
+        r = min;
+        g = (x2 * rgb_range) + min;
+        b = max;
+    } else if _h >= 4.0 && _h < 5.0 {
+        r = (x1 * rgb_range) + min;
+        g = min;
+        b = max;
+    } else if _h >= 5.0 && _h < 6.0 {
+        r = max;
+        g = min;
+        b = (x2 * rgb_range) + min;
+    } else {
+        r = 0.0;
+        g = 0.0;
+        b = 0.0;
     }
 
-    let mut _h = h * 6.0;
-    if _h == 6.0 {
-        _h = 0.0;
-    }
-
-    let _i = _h.floor();
-
-    let _1 = v * (1.0 - s);
-    let _2 = v * (1.0 - s * (_h - _i));
-    let _3 = v * (1.0 - s * (1.0 - (_h - _i)));
-
-    let _rgb = match _i {
-        0.0 => (v, _3, _1),
-        1.0 => (_2, v, _1),
-        2.0 => (_1, v, _3),
-        3.0 => (_1, _2, v),
-        4.0 => (_3, _1, v),
-        _ => (v, _1, _2),
-    };
-
-    return Rgb(
-        (_rgb.0 * rgb_max) as u8,
-        (_rgb.1 * rgb_max) as u8,
-        (_rgb.2 * rgb_max) as u8,
-    );
+    return Rgbf::new(r, g, b);
 }
 
 // https://stackoverflow.com/a/29321264
@@ -207,66 +186,53 @@ mod tests {
         }
     }
 
-    impl Clone for Rgb {
-        fn clone(&self) -> Self {
-            let (r, g, b) = self.to_tuple();
-            return Self::new(r, g, b);
-        }
-    }
-
     #[test]
-    fn rgb_to_hsv_works() {
+    fn rgbf_to_hsv_works() {
         let rgb_colors = vec![
-            Rgbf::from(Rgb::new(0, 53, 53)),
-            Rgbf::from(Rgb::new(153, 105, 164)),
-            Rgbf::from(Rgb::new(202, 206, 35)),
+            Rgbf::new(0.0 / 255.0, 52.0 / 255.0, 52.0 / 255.0),
+            Rgbf::new(152.0 / 255.0, 104.0 / 255.0, 163.0 / 255.0),
+            Rgbf::new(202.0 / 255.0, 205.0 / 255.0, 35.0 / 255.0),
         ];
         let hsv_colors = vec![
-            (0.5, 1.0, 0.2078),
-            (0.8022, 0.3597, 0.6431),
-            (0.1705, 0.8300, 0.8078),
+            (0.5, 1.0, 0.2039),
+            (0.8022, 0.3620, 0.6392),
+            (0.1696, 0.8293, 0.8039),
         ];
-
-        let factor = 10.0f32.powi(4 as i32);
 
         for i in 0..rgb_colors.len() {
             let (_h, _s, _v) = rgbf_hsv(rgb_colors[i].clone()).into_tuple();
             let (h, s, v) = hsv_colors[i];
 
-            assert_eq!(
-                (
-                    (_h * factor).trunc(),
-                    (_s * factor).trunc(),
-                    (_v * factor).trunc(),
-                ),
-                (
-                    (h * factor).trunc(),
-                    (s * factor).trunc(),
-                    (v * factor).trunc()
-                )
-            );
+            dbg!(_h, h);
+            dbg!(_s, s);
+            dbg!(_v, v);
+
+            let err = 0.0001;
+            assert!(_h - h < err);
+            assert!(_s - s < err);
+            assert!(_v - v < err);
         }
     }
 
     #[test]
     fn hsv_set_color_works() {
         let rgb_colors = vec![
-            Rgb::new(0, 52, 52),
-            Rgb::new(152, 104, 163),
-            Rgb::new(202, 205, 35),
+            Rgbf::new(0.0 / 255.0, 52.0 / 255.0, 52.0 / 255.0),
+            Rgbf::new(152.0 / 255.0, 104.0 / 255.0, 163.0 / 255.0),
+            Rgbf::new(202.0 / 255.0, 205.0 / 255.0, 35.0 / 255.0),
         ];
 
         let result_hsv_colors = vec![
-            (0.5, 1.0, 0.1039),
-            (0.8022, 0.3597, 0.32155),
-            (0.1705, 0.8300, 0.4039),
+            (0.5, 1.0, 0.2039),
+            (0.8022, 0.3620, 0.6392),
+            (0.1696, 0.8293, 0.8039),
         ];
 
         let er: f32 = 0.01;
         let shift_s: f32 = 0.0;
         let shift_v: f32 = 0.5;
         for i in 0..rgb_colors.len() {
-            let mut hsv = rgbf_hsv(Rgbf::from(Rgbf::from(rgb_colors[i].clone())));
+            let mut hsv = rgbf_hsv(rgb_colors[i].clone());
             let (_, s, v) = hsv.to_tuple();
             hsv.set(s - (shift_s * s), v - (shift_v * v));
 
@@ -280,26 +246,26 @@ mod tests {
     }
 
     #[test]
-    fn hsv_to_rgb_works() {
+    fn hsv_to_rgbf_works() {
         let rgb_colors = vec![
-            Rgb::new(0, 52, 52),
-            Rgb::new(152, 104, 163),
-            Rgb::new(202, 205, 35),
+            Rgbf::new(0.0 / 255.0, 52.0 / 255.0, 52.0 / 255.0),
+            Rgbf::new(152.0 / 255.0, 104.0 / 255.0, 163.0 / 255.0),
+            Rgbf::new(202.0 / 255.0, 205.0 / 255.0, 35.0 / 255.0),
         ];
         let hsv_colors = vec![
-            (0.5, 1.0, 0.2078),
-            (0.8022, 0.3597, 0.6431),
-            (0.1705, 0.8300, 0.8078),
+            (0.5, 1.0, 0.2039),
+            (0.8022, 0.3620, 0.6392),
+            (0.1696, 0.8293, 0.8039),
         ];
 
         for i in 0..rgb_colors.len() {
-            let (_r, _g, _b) = hsv_rgb(Hsv::new(hsv_colors[i])).into_tuple();
+            let (_r, _g, _b) = hsv_rgbf(Hsv::new(hsv_colors[i])).into_tuple();
             let (r, g, b) = rgb_colors[i].clone().into_tuple();
 
-            let er: u8 = 1;
-            assert!((_r.abs_diff(r)) <= er);
-            assert!((_g.abs_diff(g)) <= er);
-            assert!((_b.abs_diff(b)) <= er);
+            let er: f32 = 0.0001;
+            assert!((_r - r) <= er);
+            assert!((_g - g) <= er);
+            assert!((_b - b) <= er);
         }
     }
 }

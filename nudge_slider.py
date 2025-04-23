@@ -9,15 +9,17 @@ except:
 
 from krita import ManagedColor
 from .lib_zen import generate_color_gradient, color_shift
+from .app import App
+from .utils import UnimplementedError
 
 class NudgeSlider(QWidget):
     default_color = ManagedColor("", "", "")
 
     def __init__(
-        self, docker, name, left_color=default_color, right_color=default_color, parent=None
+        self, app: App, name, left_color=default_color, right_color=default_color, parent=None
     ):
         super(NudgeSlider, self).__init__(parent)
-        self.docker = docker
+        self.app = app
         self.name = name
         self.left_color = left_color
         self.right_color = right_color
@@ -27,21 +29,30 @@ class NudgeSlider(QWidget):
         self.cursor_outline_color = QColor.fromRgbF(0, 0, 0, 1)
         self.need_redraw = True
 
-    def set_color(self, pos, color):
-        if pos == "left":
-            self.left_color = color
+        self.setMaximumHeight(30)
+        self.setMinimumHeight(20)
+
+        self.update_color()
+
+    def update_color(self):
+        r, g, b, a = self.app.current_color.componentsOrdered()
+        l_r, l_g, l_b = 0.0, 0.0, 0.0
+        r_r, r_g, r_b = 0.0, 0.0, 0.0
+
+        if self.name == "saturation_slider":
+            l_r, l_g, l_b = color_shift((r, g, b), -1.0, 0.0)
+            r_r, r_g, r_b = color_shift((r, g, b), 1.0, 0.0)
+        #TODO: clamp value range
+        elif self.name == "value_slider":
+            l_r, l_g, l_b = color_shift((r, g, b), 0.0, -1.0)
+            r_r, r_g, r_b = color_shift((r, g, b), 0.0, 1.0)
         else:
-            self.right_color = color
+            raise UnimplementedError("unimplemented update_color behavior for: "+ self.name)
+
+        self.left_color.setComponents([l_b, l_g, l_r, a])
+        self.right_color.setComponents([r_b, r_g, r_r, a])
 
         self.need_redraw = True
-
-        r, g, b, a = self.docker.current_color.componentsOrdered()
-
-        if self.name == "r_slider":
-            left = self.left_color.componentsOrdered()
-            right = self.right_color.componentsOrdered()
-            current = self.docker.current_color.componentsOrdered()
-
         self.update()
 
     def update_slider(self):
@@ -52,13 +63,16 @@ class NudgeSlider(QWidget):
         at the following URL.
         https://github.com/KDE/krita/blob/master/plugins/dockers/advancedcolorselector/kis_shade_selector_line.cpp
         """
+
+        width = self.width()
+        height = self.height()
         if self.need_redraw:
-            patch_count = self.width()
+            patch_count = width
 
             left_rgba = self.left_color.componentsOrdered()
             right_rgba = self.right_color.componentsOrdered()
 
-            self.slider_pixmap = QPixmap(self.width(), self.height())
+            self.slider_pixmap = QPixmap(width, height)
             painter = QPainter(self.slider_pixmap)
 
             gradient = generate_color_gradient(
@@ -70,7 +84,7 @@ class NudgeSlider(QWidget):
             for i in range(patch_count):
                 r, g, b = gradient[i]
                 cur_color = QColor.fromRgbF(r, g, b)
-                painter.fillRect(i, 0, 1, self.height(), cur_color)
+                painter.fillRect(i, 0, 1, height, cur_color)
 
             painter.end()
             self.need_redraw = False
@@ -81,9 +95,9 @@ class NudgeSlider(QWidget):
 
         if self.value_x is not None:
             start_x = int(self.value_x)
-            start_y = int(self.height() / 2)
-            delta_x = int(self.height() / 3)
-            delta_y = int(self.height() / 3)
+            start_y = int(height / 2)
+            delta_x = int(height / 3)
+            delta_y = int(height / 3)
             points = [
                 QPoint(start_x, start_y),
                 QPoint(start_x - delta_x, start_y + delta_y),
@@ -112,8 +126,10 @@ class NudgeSlider(QWidget):
         pos = event.pos()
         self.value_x = self.adjust_pos_x(pos.x())
         y = int(self.height() / 2)
-        if self.docker.canvas() is not None:
-            color = self.docker.current_color
+
+        canvas = self.app.canvas
+        if canvas is not None:
+            color = self.app.current_color
             val = self.value_x
             mid_value = self.width() // 2
 
@@ -139,8 +155,9 @@ class NudgeSlider(QWidget):
                 comps[2] = r
 
             color.setComponents(comps)
-            if self.docker.canvas().view() is not None:
-                self.docker.canvas().view().setForeGroundColor(color)
+            view = canvas.view()
+            if view is not None:
+                view.setForeGroundColor(color)
 
         self.update()
 
