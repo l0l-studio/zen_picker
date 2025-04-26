@@ -5,11 +5,35 @@ except:
     from PyQt5.QtGui import QColor
     from PyQt5.QtWidgets import QLayout
 
-from krita import ManagedColor, Canvas
+from typing import Union
 import time
+from krita import ManagedColor, Canvas
+
+from .lib_zen import mix, relative_color_shift
 
 class UnimplementedError(Exception):
     pass
+
+class Light():
+    def __init__(self, color: ManagedColor, intensity: float = 0.1):
+        self.__color = color
+        self.__intensity = intensity
+
+    @property
+    def color(self) -> ManagedColor:
+        return self.__color
+
+    @color.setter
+    def color(self, color: ManagedColor):
+        self.__color = color
+
+    @property
+    def intensity(self) -> float:
+        return self.__intensity
+
+    @intensity.setter
+    def set_intensity(self, intensity: float):
+        self.__intensity = intensity
 
 # https://gist.github.com/kylebebak/ee67befc156831b3bbaa88fb197487b0
 # TODO: debounce severs link to class instance
@@ -53,3 +77,44 @@ def delete_layout(layout: QLayout):
         widget = child.widget()
         if widget:
             widget.deleteLater()
+
+
+def get_color_idx(color: ManagedColor, colors: list[ManagedColor]) -> int:
+    for i, stored_color in enumerate(colors):
+        r, g, b, a = stored_color[0].componentsOrdered()
+        _r, _g, _b, _a = color.componentsOrdered()
+
+        if (r == _r and g == _g and b == _b and a == _a):
+            return i
+
+    return -1
+
+
+def get_mixed_colors(
+    color: ManagedColor, 
+    lights: (Light, Light),
+    components: bool = False,
+    bgr: bool = True
+) -> (Union[QColor, list[float]], Union[QColor, list[float]]):
+    r, g, b, a = color.componentsOrdered()
+
+    main_light, ambient_light = lights
+
+    l_r, l_g, l_b, l_a = main_light.color.componentsOrdered()
+    a_r, a_g, a_b, a_a = ambient_light.color.componentsOrdered()
+
+    #TODO: could assume new_color already influenced by ambient color?
+    l_r, l_g, l_b = mix((r, g, b),(l_r, l_g, l_b), main_light.intensity)
+    r, g, b = mix((r, g, b),(a_r, a_g, a_b), ambient_light.intensity)
+    s_r, s_g, s_b = relative_color_shift((r, g, b), 0.0, 0.5)
+
+    if components:
+        return ([l_b, l_g, l_r, a], [s_b, s_g, s_r, a]) if bgr else ([l_r, l_g, l_b, a], [s_r, s_g, s_b, a])
+
+    illuminated_color = copy_managed_color(color)
+    illuminated_color.setComponents([l_b, l_g, l_r, a])
+
+    shadow_color = copy_managed_color(color) 
+    shadow_color.setComponents([s_b, s_g, s_r, a])
+
+    return (illuminated_color, shadow_color)

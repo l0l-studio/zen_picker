@@ -141,7 +141,6 @@ class NudgeSlider(QWidget):
                 elif val > mid_value:
                     val = 1 * abs(val - mid_value)
 
-            # self.docker.debug_label.setText(str(b)+str(g)+str(r)+str(a))
             width = self.width() * 13
             if self.name == "saturation_slider":
                 (r, g, b) = color_shift((comps[0], comps[1], comps[2]), float(val / width), 0.0)

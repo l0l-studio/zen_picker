@@ -10,34 +10,20 @@ from krita import (
     Canvas
 )
 from .lib_zen import mix, relative_color_shift
-from .utils import q_to_managed_color, managed_to_q_color, copy_managed_color
+from .utils import (
+    Light, 
+    q_to_managed_color, 
+    managed_to_q_color,
+    get_mixed_colors, 
+    get_color_idx
+)
 
-class Light():
-    def __init__(self, color: ManagedColor, intensity: float = 0.1):
-        self.__color = color
-        self.__intensity = intensity
-
-    @property
-    def color(self) -> ManagedColor:
-        return self.__color
-
-    @color.setter
-    def set_color(self, color: ManagedColor):
-        self.__color = color
-
-    @property
-    def intensity(self) -> float:
-        return self.__intensity
-
-    @intensity.setter
-    def set_intensity(self, intensity: float):
-        self.__intensity = intensity
 
 class App():
     default_light_color = QColor.fromRgb(230, 205, 167)
     default_ambient_color = QColor.fromRgb(73, 120, 234)
 
-    def __init__(self, dock_widget: DockWidget, current_color: ManagedColor, settings=None):
+    def __init__(self, dock_widget: DockWidget, current_color: ManagedColor = None, settings=None):
         krita_instance = Krita.instance()
         notifier = krita_instance.notifier()
         notifier.setActive(True)
@@ -45,11 +31,21 @@ class App():
         self.__dock_widget = dock_widget
         self.__krita_instance = krita_instance
 
-        self.__current_color = current_color
-        self.__main_light = Light(q_to_managed_color(self.canvas, self.default_light_color))
-        self.__ambient_light = Light(q_to_managed_color(self.canvas, self.default_ambient_color))
+        self.__current_color = current_color if current_color is not None else q_to_managed_color(
+            self.canvas,
+            QColor.fromRgbF(0.0, 0.0, 0.0, 1)
+        )
 
-        self.__local_colors = []
+        self.__main_light = Light(
+            q_to_managed_color(self.canvas, self.default_light_color),
+            0.3
+        )
+        self.__ambient_light = Light(
+            q_to_managed_color(self.canvas, self.default_ambient_color),
+            0.2
+        )
+
+        self.__saved_colors = []
         self.__exposure = 1.0
 
     @property
@@ -68,23 +64,14 @@ class App():
     def main_light(self) -> Light:
         return self.__main_light
 
-    @main_light.setter
-    def set_main_light(self, color: Light):
-        self.__main_light = color
-
     @property
     def ambient_light(self) -> Light:
         return self.__ambient_light
 
-    @ambient_light.setter
-    def set_ambient_light(self, color: Light):
-        self.__ambient_light = color
-
     @property
-    def local_colors(self) -> list[QColor]:
-        return self.__local_colors
+    def saved_colors(self) -> list[QColor]:
+        return self.__saved_colors
 
-    #TODO: temp
     @property
     def dock_widget(self) -> DockWidget:
         return self.__dock_widget
@@ -92,6 +79,13 @@ class App():
     @property
     def canvas(self) -> Canvas:
             return self.__dock_widget.canvas()
+
+    def foregroundColor(self) -> ManagedColor:
+        canvas = self.canvas
+        if canvas is not None:
+            return canvas.view().foregroundColor()
+        else:
+            raise ValueError('no active canvas.')
 
     def sync(self):
         canvas = self.canvas
@@ -104,37 +98,25 @@ class App():
 
         self.set_current_color = color_fg
 
-    def __get_color_idx(self, color: ManagedColor) -> int:
-        colors = self.__local_colors
-        for i, stored_color in enumerate(colors):
-            r, g, b, a = stored_color.componentsOrdered()
-            _r, _g, _b, _a = color.componentsOrdered()
-
-            if (r == _r and g == _g and b == _b and a == _a):
-                return i
-
-        return -1
-
     def try_add_local_color(self) -> (ManagedColor, ManagedColor, ManagedColor):
-        canvas = self.canvas
-        if canvas is not None:
-            managed_color = canvas.view().foregroundColor()
-            if self.__get_color_idx(managed_color) == -1:
-                self.__local_colors.append(managed_color)
-                illuminated_color, shadow_color = self.get_mixed_colors(managed_color)
+        managed_color = self.foregroundColor()
+        if get_color_idx(managed_color, self.__saved_colors) == -1:
+            illuminated_color, shadow_color = get_mixed_colors(
+                managed_color, 
+                (self.__main_light, self.__ambient_light)
+            )
 
-                return (managed_color, illuminated_color, shadow_color)
-            else:
-                raise ValueError('color already exists.')
-        else:
-            raise ValueError('no active canvas.')
+            color_tuple = (managed_color, illuminated_color, shadow_color)
+            #TODO: only append managed_color
+            self.__saved_colors.append(color_tuple)
+            return color_tuple 
 
     def try_remove_local_color(self, to_remove: ManagedColor):
-        colors = self.__local_colors
+        colors = self.__saved_colors
 
-        idx = self.__get_color_idx(to_remove)
+        idx = get_color_idx(to_remove, self.__saved_colors)
         if idx == -1:
-            raise ValueError("id not find in local_color list")
+            raise ValueError("id not found in local_color list")
 
         if len(colors) > 1:
             colors[idx], colors[-1] = colors[-1], colors[idx]
@@ -147,27 +129,32 @@ class App():
         else:
             raise ValueError('No active canvas')
 
-    # color: QColor because color conversion between QColor and ManagedColor
-    # shifts color drastically
-    def get_mixed_colors(self, color: ManagedColor) -> (QColor, QColor):
-        r, g, b, a = color.componentsOrdered()
+    #TODO: refactor to be able to add more light colors?
+    # do i even need more than 3 light sources?
+    def try_update_main_light(self) -> ManagedColor:
+        managed_color = self.foregroundColor()
+        self.__main_light.color = managed_color
+        self.update_saved_colors()
+        return managed_color
 
-        main_light = self.main_light
-        ambient_light = self.ambient_light 
+    def try_update_ambient_light(self) -> ManagedColor:
+        managed_color = self.foregroundColor()
+        self.__ambient_light.color = managed_color
+        self.update_saved_colors()
+        return managed_color
 
-        l_r, l_g, l_b, l_a = main_light.color.componentsOrdered()
-        a_r, a_g, a_b, a_a = ambient_light.color.componentsOrdered()
+    def update_saved_colors(self):
+        colors = self.__saved_colors
 
-        #TODO: could assume new_color already influenced by ambient color?
-        l_r, l_g, l_b = mix((r, g, b),(l_r, l_g, l_b), main_light.intensity)
-        r, g, b = mix((r, g, b),(a_r, a_g, a_b), ambient_light.intensity)
-        s_r, s_g, s_b = relative_color_shift((r, g, b), 0.0, 0.5)
+        for color in colors:
+            local, illuminated, shadow = color
 
-        # color = QColor.fromRgbF(r, g, b, a)
-        illuminated_color = copy_managed_color(color)
-        illuminated_color.setComponents([l_b, l_g, l_r, a])
+            _illuminated, _shadow = get_mixed_colors(
+                local, 
+                (self.__main_light, self.__ambient_light), 
+                True
+            )
 
-        shadow_color = copy_managed_color(color) 
-        shadow_color.setComponents([s_b, s_g, s_r, a])
+            illuminated.setComponents(_illuminated)
+            shadow.setComponents(_shadow)
 
-        return (illuminated_color, shadow_color)

@@ -33,7 +33,7 @@ from krita import (
     DockWidgetFactoryBase,
 )
 
-from .app import App, Light
+from .app import App
 from .lib_zen import color_shift
 from .color_slider import ColorSlider
 from .nudge_slider import NudgeSlider
@@ -48,21 +48,7 @@ class ZenDocker(DockWidget):
     def __init__(self):
         super().__init__()
 
-        self.default_left_color = q_to_managed_color(self.canvas(),
-            QColor.fromRgbF(0.4, 0.8, 1, 1)
-        )
-        self.default_right_color = q_to_managed_color(self.canvas(),
-            QColor.fromRgbF(0, 0, 0, 1)
-        )
-
-        # current_settings = krita_instance.readSetting(
-        #     "",
-        #     settings("colors"),
-        #     "RGBA,U8,sRGB-elle-V2-srgbtrc.icc,1,0.8,0.4,1|"
-        #     + "RGBA,U8,sRGB-elle-V2-srgbtrc.icc,0,0.8,0.4,1",
-        # )  # alpha=1 == non-transparent
-
-        self.app = App(self, self.default_left_color)
+        self.app = App(self)
         self.setup_ui()
         self.Init_Sync_Timer()
 
