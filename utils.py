@@ -81,7 +81,7 @@ def delete_layout(layout: QLayout):
 
 def get_color_idx(color: ManagedColor, colors: list[ManagedColor]) -> int:
     for i, stored_color in enumerate(colors):
-        r, g, b, a = stored_color[0].componentsOrdered()
+        r, g, b, a = stored_color.componentsOrdered()
         _r, _g, _b, _a = color.componentsOrdered()
 
         if (r == _r and g == _g and b == _b and a == _a):

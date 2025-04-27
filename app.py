@@ -18,7 +18,6 @@ from .utils import (
     get_color_idx
 )
 
-
 class App():
     default_light_color = QColor.fromRgb(230, 205, 167)
     default_ambient_color = QColor.fromRgb(73, 120, 234)
@@ -106,15 +105,14 @@ class App():
                 (self.__main_light, self.__ambient_light)
             )
 
-            color_tuple = (managed_color, illuminated_color, shadow_color)
-            #TODO: only append managed_color
-            self.__saved_colors.append(color_tuple)
-            return color_tuple 
+            self.__saved_colors.append(managed_color)
+
+            return (managed_color, illuminated_color, shadow_color) 
 
     def try_remove_local_color(self, to_remove: ManagedColor):
         colors = self.__saved_colors
 
-        idx = get_color_idx(to_remove, self.__saved_colors)
+        idx = get_color_idx(to_remove, colors)
         if idx == -1:
             raise ValueError("id not found in local_color list")
 
@@ -134,27 +132,11 @@ class App():
     def try_update_main_light(self) -> ManagedColor:
         managed_color = self.foregroundColor()
         self.__main_light.color = managed_color
-        self.update_saved_colors()
+
         return managed_color
 
     def try_update_ambient_light(self) -> ManagedColor:
         managed_color = self.foregroundColor()
         self.__ambient_light.color = managed_color
-        self.update_saved_colors()
+
         return managed_color
-
-    def update_saved_colors(self):
-        colors = self.__saved_colors
-
-        for color in colors:
-            local, illuminated, shadow = color
-
-            _illuminated, _shadow = get_mixed_colors(
-                local, 
-                (self.__main_light, self.__ambient_light), 
-                True
-            )
-
-            illuminated.setComponents(_illuminated)
-            shadow.setComponents(_shadow)
-

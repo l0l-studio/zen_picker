@@ -74,13 +74,13 @@ class ZenDocker(DockWidget):
         # self.debug_label = QLabel()
         # main_layout.addWidget(self.debug_label)
 
-        self.color_manager = ColorManager(
+        color_manager = ColorManager(
             self.app, 
             "color_manager"
         )
 
         scroll_area = QScrollArea()
-        scroll_area.setWidget(self.color_manager)
+        scroll_area.setWidget(color_manager)
         scroll_area.setWidgetResizable(True)
 
         current_color = self.app.current_color
@@ -124,7 +124,7 @@ class ZenDocker(DockWidget):
         main_layout.addLayout(slider_layout)
 
         self.widget.setLayout(top_layout)
-        self.setWindowTitle(i18n("zen picker"))
+        self.setWindowTitle(i18n(PLUGIN_NAME))
         self.setWidget(self.widget)
         [x.show() for x in self.sliders]
 

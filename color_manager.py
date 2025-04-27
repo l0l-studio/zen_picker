@@ -81,13 +81,17 @@ class ColorManager(QWidget):
         self.mode = modes["add"]
         self.color_rows: list[(ManagedColor, ColorBtn, ColorBtn)] = []
 
-        self.layout = QHBoxLayout()
-        self.layout.setAlignment(Qt.AlignTop)
-        self.setLayout(self.layout)
+        self.setup_ui()
+
+    def setup_ui(self):
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignTop)
+        self.setLayout(layout)
 
         self.local_color_col = QVBoxLayout()
         self.light_color_col = QVBoxLayout()
-        self.light_color_top_row = QHBoxLayout()
+
+        light_color_top_row = QHBoxLayout()
 
         self.main_light_color_btn = ColorBtn(
             managed_to_q_color(self.app.canvas, self.app.main_light.color)
@@ -99,24 +103,24 @@ class ColorManager(QWidget):
         )
         self.ambient_light_color_btn.clicked.connect(self.slot_update_ambient_color)
 
-        #TODO: replace with icon
-        self.add_new_color_btn = QPushButton()
-        self.add_new_color_btn.setIcon(self.app.krita_instance.icon("list-add"))
-        self.add_new_color_btn.setFixedHeight(20)
-        self.add_new_color_btn.clicked.connect(self.slot_add_new_color_btn)
+        add_new_color_btn = QPushButton()
+        add_new_color_btn.setIcon(self.app.krita_instance.icon("list-add"))
+        add_new_color_btn.setFixedHeight(20)
+        add_new_color_btn.clicked.connect(self.slot_add_new_color_btn)
 
-        self.layout.addLayout(self.local_color_col)
-        self.layout.addLayout(self.light_color_col)
-        self.light_color_col.addLayout(self.light_color_top_row)
-        self.light_color_top_row.addWidget(self.main_light_color_btn)
-        self.light_color_top_row.addWidget(self.ambient_light_color_btn)
-        self.local_color_col.addWidget(self.add_new_color_btn)
+        layout.addLayout(self.local_color_col)
+        layout.addLayout(self.light_color_col)
+
+        self.local_color_col.addWidget(add_new_color_btn)
+        self.light_color_col.addLayout(light_color_top_row)
+
+        light_color_top_row.addWidget(self.main_light_color_btn)
+        light_color_top_row.addWidget(self.ambient_light_color_btn)
 
     @pyqtSlot()
     def slot_update_main_light_color(self):
         match QApplication.keyboardModifiers():
             case Qt.ControlModifier:
-                #TODO: pass qcolor references to update
                 new_color = self.app.try_update_main_light()
                 self.main_light_color_btn.color = new_color.componentsOrdered()
 
@@ -174,7 +178,7 @@ class ColorManager(QWidget):
 
         colors = self.color_rows
 
-        idx = get_color_idx(color, colors)
+        idx = get_color_idx(color, [i[0] for i in colors])
         if idx == -1:
             raise ValueError("id not found in local_color list")
 
