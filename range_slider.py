@@ -1,3 +1,4 @@
+from typing import Literal
 try:
     from PyQt6.QtWidgets import QWidget
     from PyQt6.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygon
@@ -8,52 +9,46 @@ except:
     from PyQt5.QtCore import QPoint, Qt
 
 from krita import ManagedColor
-from .lib_zen import generate_color_gradient, color_shift
+from .lib_zen import (
+    generate_color_gradient, 
+    color_shift, 
+    value_shift,
+    saturation_shift
+)
 from .app import App
 from .utils import UnimplementedError
 
-class NudgeSlider(QWidget):
+class RangeSlider(QWidget):
     default_color = ManagedColor("", "", "")
 
     def __init__(
-        self, app: App, name, left_color=default_color, right_color=default_color, parent=None
+        self, app: App, 
+        name, 
+        left_color: ManagedColor = default_color,
+        right_color: ManagedColor = default_color, 
+        lower_limit = 0, 
+        upper_limit = 0, 
+        parent = None
     ):
-        super(NudgeSlider, self).__init__(parent)
+        super(RangeSlider, self).__init__()
         self.app = app
         self.name = name
         self.left_color = left_color
         self.right_color = right_color
         self.slider_pixmap = None
-        self.value_x = None
+        self.rendered_image = None
         self.cursor_fill_color = QColor.fromRgbF(1, 1, 1, 1)
         self.cursor_outline_color = QColor.fromRgbF(0, 0, 0, 1)
         self.need_redraw = True
 
+        self.lower_limit = lower_limit
+        self.upper_limit = upper_limit
+
+        self.editing: None | Literal['lower'] | Literal['upper'] = None
+
         self.setMaximumHeight(30)
         self.setMinimumHeight(20)
-
-        self.update_color()
-
-    def update_color(self):
-        r, g, b, a = self.app.current_color(True)
-        l_r, l_g, l_b = 0.0, 0.0, 0.0
-        r_r, r_g, r_b = 0.0, 0.0, 0.0
-
-        if self.name == "saturation_slider":
-            l_r, l_g, l_b = color_shift((r, g, b), -1.0, 0.0)
-            r_r, r_g, r_b = color_shift((r, g, b), 1.0, 0.0)
-        #TODO: clamp value range
-        elif self.name == "value_slider":
-            l_r, l_g, l_b = color_shift((r, g, b), 0.0, -1.0)
-            r_r, r_g, r_b = color_shift((r, g, b), 0.0, 1.0)
-        else:
-            raise UnimplementedError("unimplemented update_color behavior for: "+ self.name)
-
-        self.left_color.setComponents([l_b, l_g, l_r, a])
-        self.right_color.setComponents([r_b, r_g, r_r, a])
-
-        self.need_redraw = True
-        self.update()
+        self.setMaximumWidth(1000)
 
     def update_slider(self):
         """
@@ -90,11 +85,27 @@ class NudgeSlider(QWidget):
             self.need_redraw = False
 
         widget_painter = QPainter(self)
-        self.rendered_image = self.slider_pixmap.toImage()
+
+        if self.slider_pixmap is not None:
+            self.rendered_image = self.slider_pixmap.toImage()
         widget_painter.drawImage(0, 0, self.rendered_image)
 
-        if self.value_x is not None:
-            start_x = int(self.value_x)
+        if self.lower_limit is not None:
+            start_x = int(self.lower_limit)
+            start_y = int(height / 2)
+            delta_x = int(height / 3)
+            delta_y = int(height / 3)
+            points = [
+                QPoint(start_x, start_y),
+                QPoint(start_x - delta_x, start_y + delta_y),
+                QPoint(start_x + delta_x, start_y + delta_y),
+            ]
+            widget_painter.setBrush(QBrush(self.cursor_fill_color))
+            widget_painter.setPen(self.cursor_outline_color)
+            widget_painter.drawPolygon(QPolygon(points))
+
+        if self.upper_limit is not None:
+            start_x = int(self.upper_limit)
             start_y = int(height / 2)
             delta_x = int(height / 3)
             delta_y = int(height / 3)
@@ -113,55 +124,52 @@ class NudgeSlider(QWidget):
     def resizeEvent(
         self, event
     ):  # after resizing the widget, force-redraw the underlying slider
+
+        (lower, upper) = self.app.value_range
+        self.lower_limit = self.width() * lower
+        self.upper_limit = self.width() * upper
+
         self.need_redraw = True
 
-    def adjust_pos_x(self, x):  # adjust the x to make it in the range of [0, width - 1]
-        if x < 0:
-            return 0
-        if x >= self.width():
-            return self.width() - 1
+    def adjust_pos_x_for(self, x: int , limiter: str) -> int:
+        lower, upper = 0, self.width()
+
+        if limiter == "lower":
+            upper = self.upper_limit - 5
+        elif limiter == "upper" :
+            lower = self.lower_limit + 5
+
+        if x < lower:
+            return lower
+        if x >= upper:
+            return upper - 1
+
         return x
 
     def mouseMoveEvent(self, event):
-        pos = event.pos()
-        self.value_x = self.adjust_pos_x(pos.x())
-        y = int(self.height() / 2)
+        pos = event.pos().x()
+        width = self.width()
 
-        canvas = self.app.canvas
-        if canvas is not None:
-            color = self.app.current_color()
-            val = self.value_x
-            mid_value = self.width() // 2
+        if self.editing is None:
+            distance_lower = abs(self.lower_limit - pos)
+            distance_upper = abs(self.upper_limit - pos)
 
-            comps = color.componentsOrdered()
+            if distance_lower < distance_upper:
+                self.editing = "lower"
+            else:
+                self.editing = "upper"
+        else:
+            if self.editing == "lower":
+                self.lower_limit = self.adjust_pos_x_for(pos, "lower")
+            else:
+                self.upper_limit = self.adjust_pos_x_for(pos, "upper")
 
-            if val != mid_value:
-                if val < mid_value:
-                    val = -1 * abs(val - mid_value)
-                elif val > mid_value:
-                    val = 1 * abs(val - mid_value)
-
-            width = self.width() * 13
-            if self.name == "saturation_slider":
-                (r, g, b) = color_shift((comps[0], comps[1], comps[2]), float(val / width), 0.0)
-                comps[0] = b
-                comps[1] = g
-                comps[2] = r
-            if self.name == "value_slider":
-                (r, g, b) = color_shift((comps[0], comps[1], comps[2]), 0.0, float(val / width))
-                comps[0] = b
-                comps[1] = g
-                comps[2] = r
-
-            color.setComponents(comps)
-            view = canvas.view()
-            if view is not None:
-                view.setForeGroundColor(color)
+        (lower, upper) = self.app.value_range
+        self.app.value_range = (self.lower_limit / width, self.upper_limit / width)
 
         self.update()
 
     def mouseReleaseEvent(self, event):
-        pos = event.pos()
-        self.value_x = self.width() // 2
+        self.editing = None
         self.update()
 

@@ -8,11 +8,10 @@ mod color_ops;
 mod zen_lib {
     use super::*;
     use crate::color_ops::{blend_colors, FTuple, Hsv, Rgbf};
-    use std::cmp::{max, min};
 
     #[pyfunction()]
-    fn clamp(val: i16) -> u8 {
-        return max(min(255, val as u8), 0);
+    fn clamp(val: f32, val_min: f32, val_max: f32) -> f32 {
+        return f32::max(f32::min(val_max, val), val_min);
     }
 
     #[pyfunction]
@@ -22,6 +21,23 @@ mod zen_lib {
         hsv.set(s + shift_s, v + shift_v);
         return Rgbf::from(hsv).into_tuple();
     }
+
+    #[pyfunction]
+    fn saturation_shift(rgb: FTuple, shift: f32) -> FTuple {
+        let mut hsv: Hsv = Rgbf::from(rgb).into();
+        let (_, _, v) = hsv.to_tuple();
+        hsv.set(shift, v);
+        return Rgbf::from(hsv).into_tuple();
+    }
+
+    #[pyfunction]
+    fn value_shift(rgb: FTuple, shift: f32) -> FTuple {
+        let mut hsv: Hsv = Rgbf::from(rgb).into();
+        let (_, s, _) = hsv.to_tuple();
+        hsv.set(s, shift);
+        return Rgbf::from(hsv).into_tuple();
+    }
+
     #[pyfunction]
     fn relative_color_shift(rgb: FTuple, shift_s: f32, shift_v: f32) -> FTuple {
         let mut hsv: Hsv = Rgbf::from(rgb).into();
@@ -37,7 +53,9 @@ mod zen_lib {
 
     #[pyfunction]
     fn generate_color_gradient(a: FTuple, b: FTuple, patch_count: u16) -> Vec<FTuple> {
-        let f_patch_count = patch_count as f32;
+        let p = patch_count as f32;
+        let f_patch_count = if p > 0.0f32 { p } else { 1.0f32 };
+
         let mut gradient = Vec::<FTuple>::with_capacity(patch_count.into());
 
         for i in 0..patch_count {

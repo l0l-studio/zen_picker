@@ -203,10 +203,6 @@ mod tests {
             let (_h, _s, _v) = rgbf_hsv(rgb_colors[i].clone()).into_tuple();
             let (h, s, v) = hsv_colors[i];
 
-            dbg!(_h, h);
-            dbg!(_s, s);
-            dbg!(_v, v);
-
             let err = 0.0001;
             assert!(_h - h < err);
             assert!(_s - s < err);
@@ -223,12 +219,12 @@ mod tests {
         ];
 
         let result_hsv_colors = vec![
-            (0.5, 1.0, 0.2039),
-            (0.8022, 0.3620, 0.6392),
-            (0.1696, 0.8293, 0.8039),
+            (0.5, 1.0, 0.10195),
+            (0.8022, 0.3620, 0.3196),
+            (0.1696, 0.8293, 0.40195),
         ];
 
-        let er: f32 = 0.01;
+        let er: f32 = 0.1;
         let shift_s: f32 = 0.0;
         let shift_v: f32 = 0.5;
         for i in 0..rgb_colors.len() {

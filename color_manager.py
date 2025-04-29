@@ -162,16 +162,19 @@ class ColorManager(QWidget):
     @pyqtSlot()
     def slot_add_new_color_btn(self):
         if self.mode == modes["add"]:
-            managed_colors = self.app.try_add_local_color()
+            try:
+                managed_colors = self.app.try_add_local_color()
 
-            local_color, illuminated_color, shadow_color = managed_colors
-            q_local_color = managed_to_q_color(self.app.canvas, local_color)
-            q_illuminated_color = managed_to_q_color(self.app.canvas, illuminated_color)
-            q_shadow_color = managed_to_q_color(self.app.canvas, shadow_color)
+                local_color, illuminated_color, shadow_color = managed_colors
+                q_local_color = managed_to_q_color(self.app.canvas, local_color)
+                q_illuminated_color = managed_to_q_color(self.app.canvas, illuminated_color)
+                q_shadow_color = managed_to_q_color(self.app.canvas, shadow_color)
 
-            q_colors = (q_local_color, q_illuminated_color, q_shadow_color)
+                q_colors = (q_local_color, q_illuminated_color, q_shadow_color)
 
-            self.color_rows.append(self.render_row(managed_colors, q_colors))
+                self.color_rows.append(self.render_row(managed_colors, q_colors))
+            except:
+                pass
 
     def remove_row(self, color: ManagedColor):
         self.app.try_remove_local_color(color)

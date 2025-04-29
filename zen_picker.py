@@ -38,6 +38,7 @@ from .lib_zen import color_shift
 from .color_slider import ColorSlider
 from .nudge_slider import NudgeSlider
 from .color_manager import ColorManager
+from .app_settings import AppSettingsUI
 from .utils import q_to_managed_color, managed_to_q_color, copy_managed_color
 
 # constants
@@ -71,8 +72,10 @@ class ZenDocker(DockWidget):
         settings_button.setToolTip(i18n("Change settings"))
         settings_button.setMaximumSize(30, 30)
 
-        # self.debug_label = QLabel()
-        # main_layout.addWidget(self.debug_label)
+        settings_button.clicked.connect(self.render_settings_ui)
+
+        self.debug_label = QLabel()
+        main_layout.addWidget(self.debug_label)
 
         color_manager = ColorManager(
             self.app, 
@@ -83,7 +86,7 @@ class ZenDocker(DockWidget):
         scroll_area.setWidget(color_manager)
         scroll_area.setWidgetResizable(True)
 
-        current_color = self.app.current_color
+        current_color = self.app.current_color()
 
         # instantiate sliders
         for i in range(5):
@@ -120,7 +123,7 @@ class ZenDocker(DockWidget):
         top_layout.addWidget(scroll_area)
         top_layout.setAlignment(Qt.AlignTop)
         top_layout.addLayout(main_layout)
-        # main_layout.addWidget(settings_button)
+        main_layout.addWidget(settings_button)
         main_layout.addLayout(slider_layout)
 
         self.widget.setLayout(top_layout)
@@ -132,6 +135,7 @@ class ZenDocker(DockWidget):
         self.timer_pulse = QTimer(self)
         self.timer_pulse.timeout.connect(self.Sync)
         self.timer_pulse.start(sync_interval)
+
 
     def Sync(self):
         self.app.sync()
@@ -160,6 +164,10 @@ class ZenDocker(DockWidget):
             ]
             + [str(c) for c in managedcolor.components()]
         )
+
+    def render_settings_ui(self):
+        ui = AppSettingsUI(self.app)
+        ui.initialize()
 
 
 def settings(name: str):

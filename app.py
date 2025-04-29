@@ -45,17 +45,29 @@ class App():
         )
 
         self.__saved_colors = []
-        self.__exposure = 1.0
+        self.__contrast = 1.0
+        self.__value_range = (0.0, 1.0)
 
     @property
     def krita_instance(self):
         return self.__krita_instance
 
-    @property
-    def current_color(self) -> ManagedColor:
-        return self.__current_color
+    def current_color(self, comps: bool = False) -> ManagedColor | list[float]:
+        if not comps:
+            return self.__current_color
 
-    @current_color.setter
+        components = [0] * 4
+        comps_ordered = self.__current_color.componentsOrdered()
+        comps_len = len(comps_ordered)
+
+        for i in range(len(components)):
+            if i < comps_len:
+                components[i] = comps_ordered[i]
+            else:
+                break
+
+        return components
+
     def set_current_color(self, color: ManagedColor):
         self.__current_color = color
 
@@ -79,6 +91,22 @@ class App():
     def canvas(self) -> Canvas:
             return self.__dock_widget.canvas()
 
+    @property
+    def contrast(self) -> float:
+        return self.__contrast
+
+    @contrast.setter
+    def contrast(self, value: float):
+        self.__contrast = value
+
+    @property
+    def value_range(self) -> tuple[float, float]:
+        return self.__value_range
+
+    @value_range.setter
+    def value_range(self, value: tuple[float, float]):
+        self.__value_range = value
+
     def foregroundColor(self) -> ManagedColor:
         canvas = self.canvas
         if canvas is not None:
@@ -95,9 +123,9 @@ class App():
         color_fg = active_view.foregroundColor()
         color_bg = active_view.backgroundColor()
 
-        self.set_current_color = color_fg
+        self.set_current_color(color_fg)
 
-    def try_add_local_color(self) -> (ManagedColor, ManagedColor, ManagedColor):
+    def try_add_local_color(self) -> tuple[ManagedColor, ManagedColor, ManagedColor]:
         managed_color = self.foregroundColor()
         if get_color_idx(managed_color, self.__saved_colors) == -1:
             illuminated_color, shadow_color = get_mixed_colors(
@@ -108,6 +136,8 @@ class App():
             self.__saved_colors.append(managed_color)
 
             return (managed_color, illuminated_color, shadow_color) 
+        else:
+            raise ValueError("color already exists")
 
     def try_remove_local_color(self, to_remove: ManagedColor):
         colors = self.__saved_colors

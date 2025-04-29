@@ -17,7 +17,7 @@ except:
 
 from typing import List
 from krita import ManagedColor
-from .lib_zen import generate_color_gradient
+from .lib_zen import generate_color_gradient, clamp
 from .app import App
 from .utils import UnimplementedError
 
@@ -49,7 +49,7 @@ class ColorSlider(QWidget):
         self.update_color()
 
     def update_color(self):
-        r, g, b, a = self.app.current_color.componentsOrdered()
+        r, g, b, a = self.app.current_color(True)
 
         width = self.width()
         if self.name == "r_slider":
@@ -139,17 +139,18 @@ class ColorSlider(QWidget):
         return x
 
     def mouseMoveEvent(self, event):
+        #TODO: define behavior externally?
         pos = event.pos()
         self.value_x = self.adjust_pos_x(pos.x())
         y = int(self.height() / 2)
         canvas = self.app.canvas
-        if canvas is not None:
-            color = self.app.current_color
+        view = canvas.view()
+        if canvas is not None and view is not None:
+            color = self.app.current_color()
             comps = color.components()
             val = self.value_x / self.width()
 
-            m = max(*comps, val)
-            mn = min(*comps, val)
+            val = clamp(val, 0.02, 0.98)
 
             if self.name == "b_slider":
                 comps[0] = val
@@ -158,13 +159,8 @@ class ColorSlider(QWidget):
             if self.name == "r_slider":
                 comps[2] = val
 
-            b, g, r, a = comps
-
             color.setComponents(comps)
-
-            view = canvas.view()
-            if view is not None:
-                view.setForeGroundColor(color)
+            view.setForeGroundColor(color)
 
         self.update()
 

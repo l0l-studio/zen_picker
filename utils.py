@@ -69,7 +69,11 @@ def copy_managed_color(color: ManagedColor) -> ManagedColor:
     color_depth = color.colorDepth()
     color_profile = color.colorProfile()
 
-    return ManagedColor(color_model, color_depth, color_profile)
+    new = ManagedColor(color_model, color_depth, color_profile)
+    (r, g, b, a) = color.componentsOrdered()
+    new.setComponents([r, g, b, a])
+
+    return new
 
 def delete_layout(layout: QLayout):
     while layout.count():
@@ -104,9 +108,11 @@ def get_mixed_colors(
     a_r, a_g, a_b, a_a = ambient_light.color.componentsOrdered()
 
     #TODO: could assume new_color already influenced by ambient color?
+
+    #TODO: only mix hue
     l_r, l_g, l_b = mix((r, g, b),(l_r, l_g, l_b), main_light.intensity)
     r, g, b = mix((r, g, b),(a_r, a_g, a_b), ambient_light.intensity)
-    s_r, s_g, s_b = relative_color_shift((r, g, b), 0.0, 0.5)
+    s_r, s_g, s_b = relative_color_shift((r, g, b), 0.0, 0.2)
 
     if components:
         return ([l_b, l_g, l_r, a], [s_b, s_g, s_r, a]) if bgr else ([l_r, l_g, l_b, a], [s_r, s_g, s_b, a])
