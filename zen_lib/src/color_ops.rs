@@ -1,4 +1,4 @@
-pub type FTuple = (f32, f32, f32);
+pub type FTuple = (f64, f64, f64);
 
 impl From<Rgbf> for FTuple {
     fn from(Rgbf(r, g, b): Rgbf) -> Self {
@@ -6,10 +6,10 @@ impl From<Rgbf> for FTuple {
     }
 }
 
-pub struct Rgbf(f32, f32, f32);
+pub struct Rgbf(f64, f64, f64);
 
 impl Rgbf {
-    pub fn new(r: f32, g: f32, b: f32) -> Self {
+    pub fn new(r: f64, g: f64, b: f64) -> Self {
         return Self(r, g, b);
     }
 
@@ -38,14 +38,14 @@ impl From<FTuple> for Rgbf {
     }
 }
 
-pub struct Hsv(f32, f32, f32);
+pub struct Hsv(f64, f64, f64);
 
 impl Hsv {
     pub fn new((h, s, v): FTuple) -> Self {
         return Self(h, s, v);
     }
 
-    pub fn set(&mut self, s: f32, v: f32) {
+    pub fn set(&mut self, s: f64, v: f64) {
         self.1 = s;
         self.2 = v;
     }
@@ -67,8 +67,8 @@ impl From<Rgbf> for Hsv {
 
 // https://github.com/QuantitativeBytes/qbColor/blob/a0589344c47126705019f8498fe7fa5ae8b19d64/qbColor.cpp#L153
 fn rgbf_hsv(Rgbf(r, g, b): Rgbf) -> Hsv {
-    let min: f32;
-    let max: f32;
+    let min: f64;
+    let max: f64;
     let max_index: u8;
 
     if r == g && r == b {
@@ -89,7 +89,7 @@ fn rgbf_hsv(Rgbf(r, g, b): Rgbf) -> Hsv {
         min = if r < g { r } else { g }
     }
 
-    let mut h: f32;
+    let mut h: f64;
     let delta = max - min;
 
     match max_index {
@@ -104,13 +104,13 @@ fn rgbf_hsv(Rgbf(r, g, b): Rgbf) -> Hsv {
     }
     h = h / 360.0;
 
-    let s: f32 = if max_index == 0 {
+    let s: f64 = if max_index == 0 {
         0.0
     } else {
         (max - min) / max
     };
 
-    let v: f32 = max;
+    let v: f64 = max;
 
     return Hsv(h, s, v);
 }
@@ -124,9 +124,9 @@ fn hsv_rgbf(Hsv(h, s, v): Hsv) -> Rgbf {
     let x1 = _h % 1.0;
     let x2 = 1.0 - _h % 1.0;
 
-    let r: f32;
-    let g: f32;
-    let b: f32;
+    let r: f64;
+    let g: f64;
+    let b: f64;
 
     if _h >= 0.0 && _h < 1.0 {
         r = max;
@@ -161,12 +161,12 @@ fn hsv_rgbf(Hsv(h, s, v): Hsv) -> Rgbf {
     return Rgbf::new(r, g, b);
 }
 
-// https://stackoverflow.com/a/29321264
-fn blend_color_value(a: f32, b: f32, t: f32) -> f32 {
-    return f32::sqrt((1.0 - t) * a.powf(2.0) + t * b.powf(2.0));
+// https://stackoverflow.com/a/29641264
+fn blend_color_value(a: f64, b: f64, t: f64) -> f64 {
+    return f64::sqrt((1.0 - t) * a.powf(2.0) + t * b.powf(2.0));
 }
 
-pub fn blend_colors(a: Rgbf, b: Rgbf, t: f32) -> Rgbf {
+pub fn blend_colors(a: Rgbf, b: Rgbf, t: f64) -> Rgbf {
     return Rgbf(
         blend_color_value(a.0, b.0, t),
         blend_color_value(a.1, b.1, t),
@@ -224,9 +224,9 @@ mod tests {
             (0.1696, 0.8293, 0.40195),
         ];
 
-        let er: f32 = 0.1;
-        let shift_s: f32 = 0.0;
-        let shift_v: f32 = 0.5;
+        let er: f64 = 0.1;
+        let shift_s: f64 = 0.0;
+        let shift_v: f64 = 0.5;
         for i in 0..rgb_colors.len() {
             let mut hsv = rgbf_hsv(rgb_colors[i].clone());
             let (_, s, v) = hsv.to_tuple();
@@ -258,7 +258,7 @@ mod tests {
             let (_r, _g, _b) = hsv_rgbf(Hsv::new(hsv_colors[i])).into_tuple();
             let (r, g, b) = rgb_colors[i].clone().into_tuple();
 
-            let er: f32 = 0.0001;
+            let er: f64 = 0.0001;
             assert!((_r - r) <= er);
             assert!((_g - g) <= er);
             assert!((_b - b) <= er);

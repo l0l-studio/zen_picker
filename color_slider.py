@@ -17,9 +17,9 @@ except:
 
 from typing import List
 from krita import ManagedColor
-from .lib_zen import generate_color_gradient, clamp
+from .lib_zen import generate_color_gradient, clamp, match_value
 from .app import App
-from .utils import UnimplementedError
+from .utils import UnimplementedError, copy_managed_color
 
 class ColorSlider(QWidget):
     default_left_color = ManagedColor("", "", "")
@@ -38,10 +38,11 @@ class ColorSlider(QWidget):
         self.left_color = left_color
         self.right_color = right_color
         self.slider_pixmap = None
-        self.value_x = None
+        self.value_x: None | int = None
         self.cursor_fill_color = QColor.fromRgbF(1, 1, 1, 1)
         self.cursor_outline_color = QColor.fromRgbF(0, 0, 0, 1)
         self.need_redraw = True
+        self.color_to_match: None | ManagedColor = None
 
         self.setMaximumHeight(30)
         self.setMinimumHeight(20)
@@ -165,5 +166,27 @@ class ColorSlider(QWidget):
         self.update()
 
     def mousePressEvent(self, event):
+        self.color_to_match = copy_managed_color(self.app.current_color())
         self.mouseMoveEvent(event)
 
+    def mouseReleaseEvent(self, event):
+        canvas = self.app.canvas
+        view = canvas.view()
+        if canvas is not None and view is not None:
+            color_to_match = self.color_to_match
+
+            color = self.app.current_color()
+            comps = color.components()
+
+            r, g, b, a = 0, 0, 0, 0
+            if color_to_match is not None:
+                (r, g, b, a) = color_to_match.componentsOrdered()
+            else:
+                raise ValueError("no color to match")
+            (_r, _g, _b) = match_value((r, g, b), (comps[2], comps[1], comps[0]))
+
+            new = copy_managed_color(self.app.current_color())
+            new.setComponents([_b, _g, _r, a])
+            view.setForeGroundColor(new)
+
+            self.color_to_match = None
