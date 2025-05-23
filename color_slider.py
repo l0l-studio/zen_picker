@@ -15,11 +15,16 @@ except:
     from PyQt5.QtGui import QPixmap, QPainter, QColor, QBrush, QPolygon
     from PyQt5.QtCore import QPoint, Qt, qDebug
 
-from typing import List
+from typing import List, Callable
 from krita import ManagedColor
 from .lib_zen import generate_color_gradient, clamp, match_value
 from .app import App
-from .utils import UnimplementedError, copy_managed_color
+from .utils import (
+    UnimplementedError, 
+    copy_managed_color,
+    get_managed_color_comps,
+    set_managed_color_comps
+)
 
 class ColorSlider(QWidget):
     default_left_color = ManagedColor("", "", "")
@@ -27,46 +32,59 @@ class ColorSlider(QWidget):
 
     def __init__(
         self, app: App, 
-        name, 
+        update_slider_color: Callable[
+            [tuple[float, float, float, float]],
+            tuple[list[float], list[float], float]
+        ],
+        update_krita_color: Callable[
+            [list[float], float],
+            list[float]
+        ],
         left_color=default_left_color,
         right_color=default_right_color,
+        luminosity_lock = True,
         parent=None
     ):
-        super(ColorSlider, self).__init__(parent)
+        super(ColorSlider, self).__init__()
         self.app = app
-        self.name = name
         self.left_color = left_color
         self.right_color = right_color
+        self.luminosity_lock = luminosity_lock
+
         self.slider_pixmap = None
         self.value_x: None | int = None
         self.cursor_fill_color = QColor.fromRgbF(1, 1, 1, 1)
         self.cursor_outline_color = QColor.fromRgbF(0, 0, 0, 1)
         self.need_redraw = True
         self.color_to_match: None | ManagedColor = None
+        self.update_slider_color = update_slider_color
+        self.update_krita_color = update_krita_color 
+        self.rendered_image = None
+        self.slider_pixmap = None
 
         self.setMaximumHeight(30)
         self.setMinimumHeight(20)
 
-        self.update_color()
-
     def update_color(self):
-        r, g, b, a = self.app.current_color(True)
-
+        rgba = self.app.current_color(True)
         width = self.width()
-        if self.name == "r_slider":
-            self.left_color.setComponents([b, g, 0.0, a]) 
-            self.right_color.setComponents([b, g, 1.0, a]) 
-            self.value_x = self.adjust_pos_x(r * width)
-        elif self.name == "g_slider":
-            self.left_color.setComponents([b, 0.0, r, a]) 
-            self.right_color.setComponents([b, 1.0, r, a]) 
-            self.value_x = self.adjust_pos_x(g * width)
-        elif self.name == "b_slider":
-            self.left_color.setComponents([0.0, g, r, a]) 
-            self.right_color.setComponents([1.0, g, r, a]) 
-            self.value_x = self.adjust_pos_x(b * width)
-        else:
-            raise UnimplementedError("unimplemented update_color behavior for: "+ self.name)
+        left, right, color_comp = self.update_slider_color((*rgba,))
+
+        self.left_color = set_managed_color_comps(
+            self.left_color,
+            left if not self.luminosity_lock else [*match_value(
+                (*rgba[:3],),
+                (*left[:3],)
+            ), rgba[3]]
+        ) 
+        self.right_color = set_managed_color_comps(
+            self.right_color,
+            right if not self.luminosity_lock else [*match_value(
+                (*rgba[:3],), 
+                (*right[:3],)
+            ), rgba[3]]
+        ) 
+        self.value_x = self.adjust_pos_x(color_comp * width)
 
         self.need_redraw = True
         self.update()
@@ -85,8 +103,8 @@ class ColorSlider(QWidget):
         if self.need_redraw:
             patch_count = width
 
-            left_rgba = self.left_color.componentsOrdered()
-            right_rgba = self.right_color.componentsOrdered()
+            left_rgba = get_managed_color_comps(self.left_color)
+            right_rgba = get_managed_color_comps(self.right_color)
 
             self.slider_pixmap = QPixmap(width, height)
             painter = QPainter(self.slider_pixmap)
@@ -106,7 +124,8 @@ class ColorSlider(QWidget):
             self.need_redraw = False
 
         widget_painter = QPainter(self)
-        self.rendered_image = self.slider_pixmap.toImage()
+        if self.slider_pixmap is not None:
+            self.rendered_image = self.slider_pixmap.toImage()
         widget_painter.drawImage(0, 0, self.rendered_image)
 
         if self.value_x is not None:
@@ -140,53 +159,31 @@ class ColorSlider(QWidget):
         return x
 
     def mouseMoveEvent(self, event):
-        #TODO: define behavior externally?
         pos = event.pos()
         self.value_x = self.adjust_pos_x(pos.x())
         y = int(self.height() / 2)
         canvas = self.app.canvas
         view = canvas.view()
-        if canvas is not None and view is not None:
-            color = self.app.current_color()
-            comps = color.components()
-            val = self.value_x / self.width()
 
+        if canvas is not None and view is not None:
+            rgba = get_managed_color_comps(self.app.color_to_match)
+            val = self.value_x / self.width()
             val = clamp(val, 0.02, 0.98)
 
-            if self.name == "b_slider":
-                comps[0] = val
-            if self.name == "g_slider":
-                comps[1] = val
-            if self.name == "r_slider":
-                comps[2] = val
+            _rgba = self.update_krita_color(rgba, val)
 
-            color.setComponents(comps)
+            if self.luminosity_lock:
+                _rgba = match_value((*rgba[:3],), (*_rgba[:3],))
+
+            color = copy_managed_color(self.app.current_color())
+            color = set_managed_color_comps(color, [*_rgba[:3], rgba[3]])
             view.setForeGroundColor(color)
 
         self.update()
 
     def mousePressEvent(self, event):
-        self.color_to_match = copy_managed_color(self.app.current_color())
+        self.app.color_to_match = copy_managed_color(self.app.current_color())
         self.mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        canvas = self.app.canvas
-        view = canvas.view()
-        if canvas is not None and view is not None:
-            color_to_match = self.color_to_match
-
-            color = self.app.current_color()
-            comps = color.components()
-
-            r, g, b, a = 0, 0, 0, 0
-            if color_to_match is not None:
-                (r, g, b, a) = color_to_match.componentsOrdered()
-            else:
-                raise ValueError("no color to match")
-            (_r, _g, _b) = match_value((r, g, b), (comps[2], comps[1], comps[0]))
-
-            new = copy_managed_color(self.app.current_color())
-            new.setComponents([_b, _g, _r, a])
-            view.setForeGroundColor(new)
-
-            self.color_to_match = None
+        self.app.color_to_match = None

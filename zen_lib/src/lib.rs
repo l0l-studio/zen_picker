@@ -32,6 +32,14 @@ mod zen_lib {
     }
 
     #[pyfunction]
+    fn saturation_shift_uv(rgb: FTuple, shift: f64) -> FTuple {
+        let (r, g, b) = rgb;
+        let (h, s, v) = rgb_to_hsluv(r, g, b);
+
+        return hsluv_to_rgb(h, shift * 100.0, v);
+    }
+
+    #[pyfunction]
     fn value_shift(rgb: FTuple, shift: f64) -> FTuple {
         let mut hsv: Hsv = Rgbf::from(rgb).into();
         let (_, s, _) = hsv.to_tuple();
@@ -40,11 +48,36 @@ mod zen_lib {
     }
 
     #[pyfunction]
+    fn value_shift_uv(rgb: FTuple, shift: f64) -> FTuple {
+        let (r, g, b) = rgb;
+        let (h, s, _) = rgb_to_hsluv(r, g, b);
+
+        return hsluv_to_rgb(h, s, shift * 100.0);
+    }
+
+    #[pyfunction]
     fn relative_color_shift(rgb: FTuple, shift_s: f64, shift_v: f64) -> FTuple {
         let mut hsv: Hsv = Rgbf::from(rgb).into();
         let (_, s, v) = hsv.to_tuple();
         hsv.set(s - (shift_s * s), v - (shift_v * v));
         return Rgbf::from(hsv).into_tuple();
+    }
+
+    #[pyfunction]
+    fn to_hsv(rgb: FTuple) -> FTuple {
+        let (r, g, b) = rgb;
+        let rgb = Rgbf::new(r, g, b);
+        let hsv = Hsv::from(rgb);
+
+        return hsv.to_tuple();
+    }
+
+    #[pyfunction]
+    fn to_hsluv(rgb: FTuple) -> FTuple {
+        let (r, g, b) = rgb;
+
+        let (h, s, v) = rgb_to_hsluv(r, g, b);
+        return (h / 360.0, s / 100.0, v / 100.0) as FTuple;
     }
 
     #[pyfunction]
@@ -91,22 +124,38 @@ mod zen_lib {
 
         #[test]
         fn match_value_works() {
-            let stable = (176.0 / 255.0, 95.0 / 255.0, 110.0 / 255.0);
-            let variable = (50.0 / 255.0, 95.0 / 255.0, 110.0 / 255.0);
+            let colors = vec![
+                (
+                    (176.0 / 255.0, 95.0 / 255.0, 110.0 / 255.0),
+                    (50.0 / 255.0, 95.0 / 255.0, 110.0 / 255.0),
+                ),
+                (
+                    (169.0 / 255.0, 133.0 / 255.0, 102.0 / 255.0),
+                    (146.0 / 255.0, 144.0 / 255.0, 39.0 / 255.0),
+                ),
+                (
+                    (146.0 / 255.0, 144.0 / 255.0, 39.0 / 255.0),
+                    (168.0 / 255.0, 136.0 / 255.0, 46.0 / 255.0),
+                ),
+                (
+                    (146.0 / 255.0, 144.0 / 255.0, 39.0 / 255.0),
+                    (168.0 / 255.0, 136.0 / 255.0, 200.0 / 255.0),
+                ),
+            ];
 
-            let (r, g, b) = stable;
-            let (_r, _g, _b) = variable;
+            for (stable, variable) in colors {
+                let (r, g, b) = stable;
+                let (_r, _g, _b) = variable;
 
-            let (h, s, v) = rgb_to_hsluv(r, g, b);
+                let (h, s, v) = rgb_to_hsluv(r, g, b);
+                let (res_r, res_g, res_b) = match_value(stable, variable);
+                let (_h, _s, _v) = rgb_to_hsluv(res_r, res_g, res_b);
 
-            let (res_r, res_g, res_b) = match_value(stable, variable);
-
-            let (_h, _s, _v) = rgb_to_hsluv(res_r, res_g, res_b);
-
-            let err = 0.0001;
-            assert!((v - _v).abs() < err);
-            assert_ne!(h, _h);
-            assert_ne!(s, _s);
+                let err = 0.0000001;
+                assert!((v - _v).abs() < err);
+                assert_ne!(h, _h);
+                assert_ne!(s, _s);
+            }
         }
     }
 }

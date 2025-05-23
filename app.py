@@ -14,6 +14,7 @@ from .utils import (
     Light, 
     q_to_managed_color, 
     managed_to_q_color,
+    get_managed_color_comps,
     get_mixed_colors, 
     get_color_idx
 )
@@ -44,6 +45,7 @@ class App():
             0.2
         )
 
+        self.__color_to_match: ManagedColor = None
         self.__saved_colors = []
         self.__contrast = 1.0
         self.__value_range = (0.0, 1.0)
@@ -56,15 +58,16 @@ class App():
         if not comps:
             return self.__current_color
 
-        components = [0] * 4
-        comps_ordered = self.__current_color.componentsOrdered()
-        comps_len = len(comps_ordered)
+        components = [0.0] * 4
+        rgba = get_managed_color_comps(self.__current_color)
+        comps_len = len(rgba)
 
-        for i in range(len(components)):
-            if i < comps_len:
-                components[i] = comps_ordered[i]
-            else:
-                break
+        if comps_len == len(components):
+            r, g, b, a = rgba
+            components[0] = r
+            components[1] = g
+            components[2] = b
+            components[3] = a
 
         return components
 
@@ -106,6 +109,14 @@ class App():
     @value_range.setter
     def value_range(self, value: tuple[float, float]):
         self.__value_range = value
+
+    @property
+    def color_to_match(self) -> ManagedColor:
+        return self.__color_to_match
+
+    @color_to_match.setter
+    def color_to_match(self, color: ManagedColor):
+        self.__color_to_match = color
 
     def foregroundColor(self) -> ManagedColor:
         canvas = self.canvas

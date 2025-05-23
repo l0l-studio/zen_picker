@@ -34,9 +34,16 @@ from krita import (
 )
 
 from .app import App
-from .lib_zen import color_shift
+from .lib_zen import (
+        color_shift, 
+        to_hsv, 
+        to_hsluv, 
+        value_shift,
+        value_shift_uv,
+        saturation_shift,
+        saturation_shift_uv
+)
 from .color_slider import ColorSlider
-from .nudge_slider import NudgeSlider
 from .color_manager import ColorManager
 from .app_settings import AppSettingsUI
 from .utils import q_to_managed_color, managed_to_q_color, copy_managed_color
@@ -50,6 +57,11 @@ class ZenDocker(DockWidget):
         super().__init__()
 
         self.app = App(self)
+
+        self.timer_pulse = None
+        self.widget = QWidget()
+        self.sliders = []
+
         self.setup_ui()
         self.Init_Sync_Timer()
 
@@ -57,9 +69,6 @@ class ZenDocker(DockWidget):
         pass
 
     def setup_ui(self):
-        self.widget = QWidget()
-        self.sliders = []
-
         top_layout = QVBoxLayout()
         main_layout = QHBoxLayout()
         slider_layout = QVBoxLayout()
@@ -74,9 +83,6 @@ class ZenDocker(DockWidget):
 
         settings_button.clicked.connect(self.render_settings_ui)
 
-        self.debug_label = QLabel()
-        main_layout.addWidget(self.debug_label)
-
         color_manager = ColorManager(
             self.app, 
             "color_manager"
@@ -88,33 +94,74 @@ class ZenDocker(DockWidget):
 
         current_color = self.app.current_color()
 
-        # instantiate sliders
-        for i in range(5):
-            name = ""
-            match i:
-                case 0:
-                    name = "r_slider"
-                case 1:
-                    name = "g_slider"
-                case 2:
-                    name = "b_slider"
-                case 3:
-                    name = "saturation_slider"
-                case 4:
-                    name = "value_slider"
-
-            slider = ColorSlider(
-                self.app, 
-                name, 
-                copy_managed_color(current_color),
-                copy_managed_color(current_color)
-            ) if i < 3 else NudgeSlider(
-                self.app, 
-                name, 
-                copy_managed_color(current_color),
-                copy_managed_color(current_color)
-            ) 
-            self.sliders.append(slider)
+        self.sliders = [
+        #red slider
+        ColorSlider(
+            self.app, 
+            lambda rgba: (
+                [0.0, rgba[1], rgba[2], rgba[3]], 
+                [1.0, rgba[1], rgba[2], rgba[3]], 
+                rgba[0]
+            ),
+            lambda rgba, color_comp: [color_comp, rgba[1], rgba[2], rgba[3]],
+            copy_managed_color(current_color),
+            copy_managed_color(current_color)
+        ),
+        #green slider
+        ColorSlider(
+            self.app, 
+            lambda rgba: (
+                [rgba[0], 0.0, rgba[2], rgba[3]], 
+                [rgba[0], 1.0, rgba[2], rgba[3]],
+                rgba[1]
+            ),
+            lambda rgba, color_comp: [rgba[0], color_comp, rgba[2], rgba[3]],
+            copy_managed_color(current_color),
+            copy_managed_color(current_color)
+        ),
+        #blue slider
+        ColorSlider(
+            self.app, 
+            lambda rgba: (
+                [rgba[0], rgba[1], 0.0, rgba[3]], 
+                [rgba[0], rgba[1], 1.0, rgba[3]],
+                rgba[2]
+            ),
+            lambda rgba, color_comp: [rgba[0], rgba[1], color_comp, rgba[3]],
+            copy_managed_color(current_color),
+            copy_managed_color(current_color)
+        ),
+        #saturation slider
+        ColorSlider(
+            self.app, 
+            lambda rgba: (
+                [*saturation_shift_uv((rgba[0], rgba[1], rgba[2]), 0.0), rgba[3]], 
+                [*saturation_shift_uv((rgba[0], rgba[1], rgba[2]), 1.0), rgba[3]],
+                to_hsluv((rgba[0],rgba[1],rgba[2]))[1]
+            ),
+            lambda rgba, color_comp: [
+                *saturation_shift_uv((rgba[0], rgba[1], rgba[2]), color_comp), 
+                rgba[3]
+            ],
+            copy_managed_color(current_color),
+            copy_managed_color(current_color),
+        ),
+        #value slider
+        ColorSlider(
+            self.app, 
+            lambda rgba: (
+                [0.0, 0.0, 0.0, rgba[3]], 
+                [1.0, 1.0, 1.0, rgba[3]],
+                to_hsluv((rgba[0],rgba[1],rgba[2]))[2]
+            ),
+            lambda rgba, color_comp: [
+                *value_shift_uv((rgba[0], rgba[1], rgba[2]), color_comp), 
+                rgba[3]
+            ],
+            copy_managed_color(current_color),
+            copy_managed_color(current_color),
+            False
+        )]
 
         # compose elements
         for slider in self.sliders:

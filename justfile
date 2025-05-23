@@ -10,3 +10,7 @@ update: build
 distribute: release
     cp ./zen_lib/target/release/lib_zen.so ./lib_zen.so
 
+
+#replace path to your krita executable
+start:
+    ~/AppImages/krita.appimage ./testing.kra 

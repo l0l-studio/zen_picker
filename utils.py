@@ -70,10 +70,19 @@ def copy_managed_color(color: ManagedColor) -> ManagedColor:
     color_profile = color.colorProfile()
 
     new = ManagedColor(color_model, color_depth, color_profile)
-    (r, g, b, a) = color.componentsOrdered()
-    new.setComponents([r, g, b, a])
+    comps = get_managed_color_comps(color)
 
+    new = set_managed_color_comps(new, comps)
     return new
+
+def get_managed_color_comps(color: ManagedColor) -> list[float]:
+    r, g, b, a = color.componentsOrdered()
+    return [r, g, b, a]
+
+def set_managed_color_comps(color: ManagedColor, comps: list[float]) -> ManagedColor:
+    r, g, b, a = comps
+    color.setComponents([b, g, r, a])
+    return color
 
 def delete_layout(layout: QLayout):
     while layout.count():
