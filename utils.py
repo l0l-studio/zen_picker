@@ -76,7 +76,16 @@ def copy_managed_color(color: ManagedColor) -> ManagedColor:
     return new
 
 def get_managed_color_comps(color: ManagedColor) -> list[float]:
-    r, g, b, a = color.componentsOrdered()
+    color_comps = color.componentsOrdered()
+
+    if len(color_comps) > 2:
+        r, g, b, a = color_comps
+    else:
+        r = color_comps[0]
+        g = color_comps[0]
+        b = color_comps[0]
+        a = color_comps[1]
+
     return [r, g, b, a]
 
 def set_managed_color_comps(color: ManagedColor, comps: list[float]) -> ManagedColor:
@@ -102,34 +111,22 @@ def get_color_idx(color: ManagedColor, colors: list[ManagedColor]) -> int:
 
     return -1
 
-
 def get_mixed_colors(
     color: ManagedColor, 
-    lights: (Light, Light),
+    light: Light,
     components: bool = False,
     bgr: bool = True
-) -> (Union[QColor, list[float]], Union[QColor, list[float]]):
-    r, g, b, a = color.componentsOrdered()
+) -> Union[ManagedColor, list[float]]:
+    r, g, b, a = get_managed_color_comps(color)
+    l_r, l_g, l_b, l_a = get_managed_color_comps(light.color)
 
-    main_light, ambient_light = lights
-
-    l_r, l_g, l_b, l_a = main_light.color.componentsOrdered()
-    a_r, a_g, a_b, a_a = ambient_light.color.componentsOrdered()
-
-    #TODO: could assume new_color already influenced by ambient color?
-
-    #TODO: only mix hue
-    l_r, l_g, l_b = mix((r, g, b),(l_r, l_g, l_b), main_light.intensity)
-    r, g, b = mix((r, g, b),(a_r, a_g, a_b), ambient_light.intensity)
-    s_r, s_g, s_b = relative_color_shift((r, g, b), 0.0, 0.2)
+    #TODO: only mix hue?
+    l_r, l_g, l_b = mix((r, g, b),(l_r, l_g, l_b), light.intensity)
 
     if components:
-        return ([l_b, l_g, l_r, a], [s_b, s_g, s_r, a]) if bgr else ([l_r, l_g, l_b, a], [s_r, s_g, s_b, a])
+        return [l_r, l_g, l_b, a]
 
-    illuminated_color = copy_managed_color(color)
-    illuminated_color.setComponents([l_b, l_g, l_r, a])
+    mixed_color = copy_managed_color(color)
+    set_managed_color_comps(mixed_color, [l_r, l_g, l_b, l_a] )
 
-    shadow_color = copy_managed_color(color) 
-    shadow_color.setComponents([s_b, s_g, s_r, a])
-
-    return (illuminated_color, shadow_color)
+    return mixed_color

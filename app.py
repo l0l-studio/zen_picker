@@ -15,6 +15,7 @@ from .utils import (
     q_to_managed_color, 
     managed_to_q_color,
     get_managed_color_comps,
+    set_managed_color_comps,
     get_mixed_colors, 
     get_color_idx
 )
@@ -136,19 +137,23 @@ class App():
 
         self.set_current_color(color_fg)
 
-    def try_add_local_color(self) -> tuple[ManagedColor, ManagedColor, ManagedColor]:
-        managed_color = self.foregroundColor()
-        if get_color_idx(managed_color, self.__saved_colors) == -1:
-            illuminated_color, shadow_color = get_mixed_colors(
-                managed_color, 
-                (self.__main_light, self.__ambient_light)
-            )
+    @property
+    def current_color_mix(self) -> tuple[ManagedColor, ManagedColor, ManagedColor]:
+        managed_color = self.current_color()
 
-            self.__saved_colors.append(managed_color)
+        illuminated_color = get_mixed_colors(
+            managed_color, 
+            self.__main_light
+        )
+        shadow_color = get_mixed_colors(
+            managed_color, 
+            self.__ambient_light
+        )
+        r, g, b, a = get_managed_color_comps(shadow_color)
+        s_r, s_g, s_b = relative_color_shift((r, g, b), 0.0, 0.2)
+        shadow_color = set_managed_color_comps(shadow_color, [s_r, s_g, s_b, a])
 
-            return (managed_color, illuminated_color, shadow_color) 
-        else:
-            raise ValueError("color already exists")
+        return (managed_color, illuminated_color, shadow_color) 
 
     def try_remove_local_color(self, to_remove: ManagedColor):
         colors = self.__saved_colors

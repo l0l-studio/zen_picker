@@ -61,6 +61,7 @@ class ZenDocker(DockWidget):
         self.timer_pulse = None
         self.widget = QWidget()
         self.sliders = []
+        self.color_manager: ColorManager = None
 
         self.setup_ui()
         self.Init_Sync_Timer()
@@ -83,13 +84,13 @@ class ZenDocker(DockWidget):
 
         settings_button.clicked.connect(self.render_settings_ui)
 
-        color_manager = ColorManager(
+        self.color_manager = ColorManager(
             self.app, 
             "color_manager"
         )
 
         scroll_area = QScrollArea()
-        scroll_area.setWidget(color_manager)
+        scroll_area.setWidget(self.color_manager)
         scroll_area.setWidgetResizable(True)
 
         current_color = self.app.current_color()
@@ -186,6 +187,7 @@ class ZenDocker(DockWidget):
 
     def Sync(self):
         self.app.sync()
+        self.color_manager.update_color_row()
         for slider in self.sliders:
             slider.update_color()
 

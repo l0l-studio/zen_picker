@@ -2,7 +2,7 @@ build:
     cd zen_lib && cargo build
 
 release:
-    cd zen_lib && cargo build -r
+    cd zen_lib && cargo build -r --target x86_64-unknown-linux-gnu 
 
 update: build
     cp ./zen_lib/target/debug/lib_zen.so ./lib_zen.so
