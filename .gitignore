@@ -1,4 +1,5 @@
 *.so
+*.pyd
 __pycache__/
 **/*target/
 .ignore

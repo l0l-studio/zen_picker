@@ -2,7 +2,7 @@
 
 This is a custom color picker [Krita](https://krita.org/) plugin. The main goal
 for this color picker is to add the ability to easily control saturation and
-value for RGB sliders. Secondary goal is to get light and shadow color based on 
+value for RGB sliders. Secondary goal is to get light and shadow color based on
 the main light and the ambient light.
 
 ![zen_picker ui](./ui.png)
@@ -24,11 +24,13 @@ how i can prebuild it for major platforms)
 
 - [install rust](https://www.rust-lang.org/tools/install)
 - `cargo install just`
-- [download project zip](https://github.com/l0l-studio/zen_picker/archive/refs/heads/main.zip) 
+- [download project zip](https://github.com/l0l-studio/zen_picker/archive/refs/heads/main.zip)
 - unzip the project
 - open project directory `zen_picker-main`, where you can find the `.py` files
 - open it in the terminal
-- run `just distribute`
+- run
+    - linux: `just distribute`
+    - windows: `just --shell powershell.exe --shell-arg -c distribute_win`
 - [install plugin manually](https://docs.krita.org/en/user_manual/python_scripting/install_custom_python_plugin.html#manually)
     - in krita, go to: settings > manage resources > open resource folder
     - open the `pykrita` folder

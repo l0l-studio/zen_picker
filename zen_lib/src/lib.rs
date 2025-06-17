@@ -34,7 +34,7 @@ mod zen_lib {
     #[pyfunction]
     fn saturation_shift_uv(rgb: FTuple, shift: f64) -> FTuple {
         let (r, g, b) = rgb;
-        let (h, s, v) = rgb_to_hsluv(r, g, b);
+        let (h, _, v) = rgb_to_hsluv(r, g, b);
 
         return hsluv_to_rgb(h, shift * 100.0, v);
     }
